@@ -5,25 +5,25 @@
 #include <queue>
 #include <complex>
 #include <atomic>
+#include <memory>
 #include <unistd.h>
 
 // The base class for the pointer will need to be extendable to ALL types that
 // the memory system will use
 // NOTE: this is a very shallow class, as the memory management is going to be
 // dealing with handing the pointer to threads
+
+//TODO array indexing operations
+//todo atomic_shared_ptr -> reference counting managed by the shared pointer.
 template <typename T>
-struct reuseable_buffer {
-// TODO: why not just a std::shared_ptr? -> need shape?
-    std::atomic_int read;
+struct reuseable_buffer { // -> override so that ppl can index into this (but really index into the buffer by the pointer)
+    std::shared_ptr<T> ptr;
     std::vector<size_t> shape;
-    T *ptr; // vector of visibilities
 
-    reuseable_buffer(std::vector<size_t> s, T* p) : read(0){
+    reuseable_buffer(std::vector<size_t> s, T* p) {
         shape = s;
-        ptr = p;
+        ptr = std::shared_ptr<T>(p);
     }
-
-    reuseable_buffer(const reuseable_buffer<T> &r) : read(0){}
 
     ~reuseable_buffer() {};
 };
@@ -39,11 +39,10 @@ class recycle_memory {
     // has a vector of recycle_memory struct pointers.
     private:
         std::vector<size_t> shape;
-        std::queue<reuseable_buffer<T>*> operate;
+        std::queue<reuseable_buffer<T>*> change;
         std::queue<T*> free;
 
     public:
-        typedef void(*func)(recycle_memory<T>& r3, reuseable_buffer<T>* r);
         /*
          * Instantiator takes in list of all type signatures with their shapes
          * (and maybe names - might require names actually)
@@ -56,9 +55,9 @@ class recycle_memory {
          *     destructor
          */
         recycle_memory(std::vector<size_t> s, unsigned int max) {
-            std::queue<T> operate();
+            std::queue<T> change();
             std::queue<T> free();
-            s = shape;
+            shape = s;
         }
         /*
          * Destructor must destroy ALL memory that was allocated using their
@@ -68,7 +67,7 @@ class recycle_memory {
         }
 
         /* use a name to get the pointer that we want to start filling */
-        reuseable_buffer<T>* new_ptr() {
+        reuseable_buffer<T>* fill() {
             // empty ptr
             T* ptr;
 
@@ -82,66 +81,33 @@ class recycle_memory {
                 free.pop();
             }
 
-            // make reuseable_buffer for the buffer, increment the count and return it
+            // make reuseable_buffer for the buffer
             reuseable_buffer<T>* r = new reuseable_buffer<T>(shape, ptr);
-            r->read++;
             return r;
 
         }
 
         /* give a pointer back to be queued for operation */
-        void queue_ptr(reuseable_buffer<T>* atomic_shared_ptr) {
-            // decrement the reuseable_buffer count and put it in the operation queue
-            atomic_shared_ptr->read--;
-            operate.push(atomic_shared_ptr);
+        void queue(reuseable_buffer<T>* share_ptr) {
+            change.push(share_ptr);
             return;
         }
 
         /* use a name to give a pointer back to be operated on */
         // TODO: how does this template if we don't have a particular type?
         //       best I can come up with is use T but always pass a nullptr?
-        reuseable_buffer<T>* start_operation() {
+        reuseable_buffer<T>* operate() {
             // take a reuseable_buffer off the queue - block until we have one
             //TODO: need to make these queues locking for the mutex stuff
-            while (operate.empty()) {
+            while (change.empty()) {
                 sleep(0.1);
             }
-            reuseable_buffer<T>* r = operate.front();
-            operate.pop();
+            reuseable_buffer<T>* r = change.front();
+            change.pop();
 
-            // increment the reuseable_buffer and pass to the caller
-            r->read++;
             return r;
         }
 
-        /* end a threads operation on the pointer whether it be read or write */
-        void end_operation(reuseable_buffer<T>* atomic_shared_ptr, std::vector<func>* read_threads) { // TODO: the threads also need to have the function passed?
-            // for each read_thread increment the atomic ref count and pass the ptr
-            /* read_threads can and SHOULD be null for a reader thread getting rid of
-             * their pointer */
-            if (read_threads != NULL) {
-                for(typename std::vector<func>::iterator iter = read_threads->begin();
-                    iter != read_threads->end();
-                    iter++
-                ) {
-                    func f = *iter;
-                    atomic_shared_ptr->read++;
-                    std::thread th (f, std::ref(*this), atomic_shared_ptr); // start the thread with the pointer
-                    // TODO: the thread needs to get a const - but how is that const passed back to this function?
-                }
-            }
-
-            // decrement the atomic_shared_ptr for the caller
-            atomic_shared_ptr->read--;
-
-            // if ref count 0 then collect reuseable_buffer class and add buffer to free list
-            if (atomic_shared_ptr->read == 0) {
-                free.push(atomic_shared_ptr->ptr);
-                // delete reuseable_buffer class made for this
-                delete atomic_shared_ptr;
-            }
-            return;
-        }
 };
 
 #endif
