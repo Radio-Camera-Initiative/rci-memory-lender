@@ -37,7 +37,8 @@ void change_vis(Recycle<int>& r3) {
     }
 }
 
-void test_int() {
+
+int main(int argc, char** argv) {
     // make the class
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     Recycle<int> r3 = Recycle<int>(shape, 1); // max number does nothing right now
@@ -50,41 +51,6 @@ void test_int() {
 
     making.join();
     changing.join();
-}
-
-void check_count(const Reuse<int> p) {
-    std::cout << p.ptr.use_count() << std::endl;
-}
-
-/* test reference counting for the shared_ptr */
-void test_ref() {
-    // make the recycle_memory class
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    Recycle<int> r3 = Recycle<int>(shape, 1); // max number does nothing right now
-
-    // ask for new int -> check the count when it is received
-    Reuse<int> ptr = r3.new_ptr();
-    check_count(ptr);
-    r3.queue_ptr(ptr);
-    check_count(ptr);
-
-    // ask for int to operate -> check the count
-    Reuse<int> ptr2 = r3.start_operation()
-    check_count(ptr);
-    check_count(ptr2);
-
-    // make thread that checks count, then joins this one.
-    std::thread printing (check_count, ptr);
-
-    printing.join();
-    check_count(ptr);
-
-    // when running this with valgrind, should not have any memory left.
-}
-
-
-int main(int argc, char** argv) {
-
 
     // TODO: how does the main thread not end before all the sub threads from the operating threads end
     std::cout << "end" << std::endl;

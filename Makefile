@@ -1,5 +1,5 @@
-CC = /usr/bin/gcc-8
-FLAGS = -std=c++2a -g
+CC = /usr/bin/g++
+FLAGS = -std=c++17
 INCLUDE = -I.
 
 LD_FLAGS = -lrt -Wall -lpthread
