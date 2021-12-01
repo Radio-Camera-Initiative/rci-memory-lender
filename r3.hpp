@@ -13,10 +13,12 @@
 // NOTE: this is a very shallow class, as the memory management is going to be
 // dealing with handing the pointer to threads
 
-//TODO array indexing operations
-//todo atomic_shared_ptr -> reference counting managed by the shared pointer.
+
 template <typename T>
-struct reuseable_buffer { // -> override so that ppl can index into this (but really index into the buffer by the pointer)
+struct reuseable_buffer {
+    // TODO: array indexing operations
+
+    // TODO: check whether this kills the memory in the shared pointer while we are at it
     std::shared_ptr<T> ptr;
     std::vector<size_t> shape;
 
@@ -25,7 +27,9 @@ struct reuseable_buffer { // -> override so that ppl can index into this (but re
         ptr = std::shared_ptr<T>(p);
     }
 
-    ~reuseable_buffer() {};
+    // TODO: is it needed to explicitly call the shared_ptr destructor?
+    ~reuseable_buffer() {
+    };
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -33,13 +37,12 @@ struct reuseable_buffer { // -> override so that ppl can index into this (but re
  * recycle_memory needs to store unused memory for a particular type
  * needs to store queues for threads to take from
  */
-// TODO: will need to convert this into a variadic template
 template <typename T>
 class recycle_memory {
     // has a vector of recycle_memory struct pointers.
     private:
         std::vector<size_t> shape;
-        std::queue<reuseable_buffer<T>*> change;
+        std::queue<std::shared_ptr<reuseable_buffer<T>>> change;
         std::queue<T*> free;
 
     public:
@@ -55,59 +58,69 @@ class recycle_memory {
          *     destructor
          */
         recycle_memory(std::vector<size_t> s, unsigned int max) {
-            std::queue<T> change();
-            std::queue<T> free();
+            change = std::queue<std::shared_ptr<reuseable_buffer<T>>>();
+            free = std::queue<T*>();
             shape = s;
+
+            // make all the new ints here to put in the free list
+            for (unsigned int i = 0; i < max; i++) {
+                T* temp = new T();
+                free.push(temp);
+            }
         }
         /*
          * Destructor must destroy ALL memory that was allocated using their
          * corresponding destructors
          */
         ~recycle_memory() {
+            // TODO: make sure all buffers have released their memory to free
+
+            while (!free.empty()) {
+                T* temp = free.front(); 
+                free.pop();
+                delete temp;
+            }
         }
 
         /* use a name to get the pointer that we want to start filling */
-        reuseable_buffer<T>* fill() {
-            // empty ptr
-            T* ptr;
+        std::shared_ptr<reuseable_buffer<T>> fill() {
 
-            // if free list is empty, make a new buffer
-            if (free.empty()) {
-                // making a new buffer might use a type-specific constructor
-                ptr = new T;
-            } else {
-                // else take from free list
-                ptr = free.front();
-                free.pop();
+            // if free list is empty, wait for memory to be freed
+            while (free.empty()) {
+                sleep(0.1);
             }
+            // else take from free list
+            T* ptr = free.front();
+            free.pop();
 
             // make reuseable_buffer for the buffer
             reuseable_buffer<T>* r = new reuseable_buffer<T>(shape, ptr);
-            return r;
+            std::shared_ptr<reuseable_buffer<T>> shp(r);
+            return shp;
 
         }
 
         /* give a pointer back to be queued for operation */
-        void queue(reuseable_buffer<T>* share_ptr) {
-            change.push(share_ptr);
+        void queue(std::shared_ptr<reuseable_buffer<T>> ptr) {
+            change.push(ptr);
             return;
         }
 
         /* use a name to give a pointer back to be operated on */
-        // TODO: how does this template if we don't have a particular type?
-        //       best I can come up with is use T but always pass a nullptr?
-        reuseable_buffer<T>* operate() {
+        std::shared_ptr<reuseable_buffer<T>> operate() {
             // take a reuseable_buffer off the queue - block until we have one
-            //TODO: need to make these queues locking for the mutex stuff
+            // TODO: need to make these queues locking for safety
             while (change.empty()) {
                 sleep(0.1);
             }
-            reuseable_buffer<T>* r = change.front();
+            std::shared_ptr<reuseable_buffer<T>> r = change.front();
             change.pop();
 
             return r;
         }
 
 };
+
+// TODO: make memory_collection: variadic template for as many buffer types as we want.
 
 #endif
