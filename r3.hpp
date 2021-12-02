@@ -80,6 +80,7 @@ class recycle_memory {
             for (unsigned int i = 0; i < max; i++) {
                 // use nothrow because we don't do anything with the exception
                 T* temp = new(std::nothrow) T();
+                // TODO: for testing this should be set to a known value
                 if (temp == nullptr) {
                     // we could set a different value as max in the object
                     break;
