@@ -18,7 +18,7 @@ void make_vis(recycle_memory<int>& r3) {
 void read_vis(std::shared_ptr<reuseable_buffer<int>> vis) {
     //std::ofstream file;
     //file.open("test.txt");
-    std::cout << *vis->ptr << std::endl;
+    std::cout << "vis:" << *vis->ptr << std::endl;
     //file.close();
 }
 
@@ -36,7 +36,9 @@ void change_vis(recycle_memory<int>& r3) {
 void test_int() {
     // make the class
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    recycle_memory<int> r3 = recycle_memory<int>(shape, 1); // max number does nothing right now
+    recycle_memory<int> r3 = recycle_memory<int>(shape, 1); 
+    std::cout << r3._free_size() << std::endl;
+
 
     // make a thread to be making visibilities
     std::thread making (make_vis, std::ref(r3));
@@ -46,6 +48,8 @@ void test_int() {
 
     making.join();
     changing.join();
+    
+    std::cout << r3._free_size() << std::endl;
 }
 
 int main(int argc, char** argv) {

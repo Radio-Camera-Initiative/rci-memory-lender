@@ -8,6 +8,11 @@
 #include <memory>
 #include <unistd.h>
 
+#include <iostream>
+
+template <typename T>
+class recycle_memory;
+
 // The base class for the pointer will need to be extendable to ALL types that
 // the memory system will use
 // NOTE: this is a very shallow class, as the memory management is going to be
@@ -19,17 +24,21 @@ struct reuseable_buffer {
     // TODO: array indexing operations
 
     // TODO: check whether this kills the memory in the shared pointer while we are at it
-    std::shared_ptr<T> ptr;
+    T* ptr; // this could be a shared_pointewr
     std::vector<size_t> shape;
 
-    reuseable_buffer(std::vector<size_t> s, T* p) {
+    reuseable_buffer(std::vector<size_t> s, T* p, recycle_memory<T>& r) : recycle(r) {
         shape = s;
-        ptr = std::shared_ptr<T>(p);
+        ptr = p;
     }
 
     // TODO: is it needed to explicitly call the shared_ptr destructor?
     ~reuseable_buffer() {
+        recycle._return_memory(ptr);
     };
+
+    private:
+        recycle_memory<T>& recycle;
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -78,11 +87,13 @@ class recycle_memory {
             while (!free.empty()) {
                 T* temp = free.front(); 
                 free.pop();
-                delete temp;
+                if (temp != NULL) {
+                    delete temp;
+                }
             }
         }
 
-        /* use a name to get the pointer that we want to start filling */
+        /* get a shared pointer to the buffer we want to fill with data */
         std::shared_ptr<reuseable_buffer<T>> fill() {
 
             // if free list is empty, wait for memory to be freed
@@ -94,19 +105,19 @@ class recycle_memory {
             free.pop();
 
             // make reuseable_buffer for the buffer
-            reuseable_buffer<T>* r = new reuseable_buffer<T>(shape, ptr);
+            reuseable_buffer<T>* r = new reuseable_buffer<T>(shape, ptr, *this);
             std::shared_ptr<reuseable_buffer<T>> shp(r);
             return shp;
 
         }
 
-        /* give a pointer back to be queued for operation */
+        /* give a shared pointer back to be queued for operation */
         void queue(std::shared_ptr<reuseable_buffer<T>> ptr) {
             change.push(ptr);
             return;
         }
 
-        /* use a name to give a pointer back to be operated on */
+        /* get a shared pointer from the queue to operate on */
         std::shared_ptr<reuseable_buffer<T>> operate() {
             // take a reuseable_buffer off the queue - block until we have one
             // TODO: need to make these queues locking for safety
@@ -119,6 +130,18 @@ class recycle_memory {
             return r;
         }
 
+        void _return_memory(T* p) {
+            free.push(p);
+            return;
+        }
+
+        int _free_size() {
+            return free.size();
+        }
+
+        int _queue_size() {
+            return change.size();
+        }
 };
 
 // TODO: make memory_collection: variadic template for as many buffer types as we want.
