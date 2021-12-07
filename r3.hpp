@@ -6,6 +6,7 @@
 #include <complex>
 #include <atomic>
 #include <memory>
+#include <new>
 #include <unistd.h>
 
 #include <iostream>
@@ -77,7 +78,12 @@ class recycle_memory {
 
             // make all the new ints here to put in the free list
             for (unsigned int i = 0; i < max; i++) {
-                T* temp = new T();
+                // use nothrow because we don't do anything with the exception
+                T* temp = new(std::nothrow) T();
+                if (temp == nullptr) {
+                    // we could set a different value as max in the object
+                    break;
+                }
                 free.push(temp);
             }
         }
