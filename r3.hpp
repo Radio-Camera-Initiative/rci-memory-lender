@@ -41,6 +41,10 @@ struct reuseable_buffer {
         recycle_memory<T>& recycle;
 };
 
+/* buffer typedef for shared_ptrs */
+template <typename T>
+using buffer_ptr = std::shared_ptr<reuseable_buffer<T>>;
+
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
  *
  * recycle_memory needs to store unused memory for a particular type
@@ -51,7 +55,7 @@ class recycle_memory {
     // has a vector of recycle_memory struct pointers.
     private:
         std::vector<size_t> shape;
-        std::queue<std::shared_ptr<reuseable_buffer<T>>> change;
+        std::queue<buffer_ptr<T>> change;
         std::queue<T*> free;
 
     public:
@@ -67,7 +71,7 @@ class recycle_memory {
          *     destructor
          */
         recycle_memory(std::vector<size_t> s, unsigned int max) {
-            change = std::queue<std::shared_ptr<reuseable_buffer<T>>>();
+            change = std::queue<buffer_ptr<T>>();
             free = std::queue<T*>();
             shape = s;
 
@@ -94,7 +98,7 @@ class recycle_memory {
         }
 
         /* get a shared pointer to the buffer we want to fill with data */
-        std::shared_ptr<reuseable_buffer<T>> fill() {
+        buffer_ptr<T> fill() {
 
             // if free list is empty, wait for memory to be freed
             while (free.empty()) {
@@ -106,25 +110,25 @@ class recycle_memory {
 
             // make reuseable_buffer for the buffer
             reuseable_buffer<T>* r = new reuseable_buffer<T>(shape, ptr, *this);
-            std::shared_ptr<reuseable_buffer<T>> shp(r);
+            buffer_ptr<T> shp(r);
             return shp;
 
         }
 
         /* give a shared pointer back to be queued for operation */
-        void queue(std::shared_ptr<reuseable_buffer<T>> ptr) {
+        void queue(buffer_ptr<T> ptr) {
             change.push(ptr);
             return;
         }
 
         /* get a shared pointer from the queue to operate on */
-        std::shared_ptr<reuseable_buffer<T>> operate() {
+        buffer_ptr<T> operate() {
             // take a reuseable_buffer off the queue - block until we have one
             // TODO: need to make these queues locking for safety
             while (change.empty()) {
                 sleep(0.1);
             }
-            std::shared_ptr<reuseable_buffer<T>> r = change.front();
+            buffer_ptr<T> r = change.front();
             change.pop();
 
             return r;

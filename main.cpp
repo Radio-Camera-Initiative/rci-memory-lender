@@ -9,13 +9,13 @@
 // ask class for buffers and hand them back
 void make_vis(recycle_memory<int>& r3) {
     //TODO: make multiple buffers
-    std::shared_ptr<reuseable_buffer<int>> r = r3.fill();
+    buffer_ptr<int> r = r3.fill();
     *r->ptr = 5;
     r3.queue(r);
 }
 
 // read from visibility and write to disk (just write to terminal right now)
-void read_vis(std::shared_ptr<reuseable_buffer<int>> vis) {
+void read_vis(buffer_ptr<int> vis) {
     //std::ofstream file;
     //file.open("test.txt");
     std::cout << "vis:" << *vis->ptr << std::endl;
@@ -25,7 +25,7 @@ void read_vis(std::shared_ptr<reuseable_buffer<int>> vis) {
 // ask for visibility and make thread to read (need to do this continuously??)
 void change_vis(recycle_memory<int>& r3) {
     // what is the condition that needs to be here? will this need to be a condition?
-    std::shared_ptr<reuseable_buffer<int>> vis = r3.operate();
+    buffer_ptr<int> vis = r3.operate();
     int i = *vis->ptr;
     *vis->ptr = i+1;
     std::thread reading(read_vis, vis);
