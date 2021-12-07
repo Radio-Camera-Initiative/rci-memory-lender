@@ -115,9 +115,8 @@ class recycle_memory {
             free.pop();
 
             // make reuseable_buffer for the buffer
-            reuseable_buffer<T>* r = new reuseable_buffer<T>(shape, ptr, *this);
-            buffer_ptr<T> shp(r);
-            return shp;
+            auto sp = std::make_shared<reuseable_buffer<T>>(shape, ptr, *this);
+            return sp;
 
         }
 
