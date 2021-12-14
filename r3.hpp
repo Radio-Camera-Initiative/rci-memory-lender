@@ -7,6 +7,7 @@
 #include <atomic>
 #include <memory>
 #include <new>
+#include <mutex>
 #include <unistd.h>
 
 #include <iostream>
@@ -78,11 +79,14 @@ class recycle_memory {
 
     // has a vector of recycle_memory struct pointers.
     private:
-        std::vector<size_t> shape;
+        const std::vector<size_t> shape;
         std::queue<buffer_ptr<T>> change;
+        std::mutex change_mutex;
         std::queue<T*> free;
+        std::mutex free_mutex;
 
         void return_memory(T* p) {
+            std::lock_guard<std::mutex> guard(free_mutex);
             free.push(p);
             return;
         }
@@ -99,10 +103,11 @@ class recycle_memory {
          *     constructor
          *     destructor
          */
-        recycle_memory(std::vector<size_t> s, unsigned int max) {
+        recycle_memory(std::vector<size_t> s, unsigned int max) : shape(s) {
             change = std::queue<buffer_ptr<T>>();
             free = std::queue<T*>();
-            shape = s;
+
+            std::lock_guard<std::mutex> guard(free_mutex);
 
             // make all the new ints here to put in the free list
             for (unsigned int i = 0; i < max; i++) {
@@ -122,6 +127,8 @@ class recycle_memory {
         ~recycle_memory() {
             // TODO: make sure all buffers have released their memory to free
 
+            std::lock_guard<std::mutex> guard(free_mutex);
+
             while (!free.empty()) {
                 T* temp = free.front(); 
                 free.pop();
@@ -131,16 +138,27 @@ class recycle_memory {
             }
         }
 
-        /* get a shared pointer to the buffer we want to fill with data */
+        /* get a shared pointer to the buffer we want to fill with data 
+         * NOTE: this is a blocking operation until a buffer is free
+         */
         buffer_ptr<T> fill() {
-
-            // if free list is empty, wait for memory to be freed
-            while (free.empty()) {
-                sleep(0.1);
+            // lock mutex and check size of queue until it's not empty
+            bool check_free = true;
+            while(check_free) {
+                if (free_mutex.try_lock()) {
+                    if (!free.empty()) {
+                        check_free = false;
+                    } else {
+                        free_mutex.unlock();
+                        sleep(0.1);
+                    }
+                }
             }
-            // else take from free list
+
+            // take from free list
             T* ptr = free.front();
             free.pop();
+            free_mutex.unlock();
 
             // make reuseable_buffer for the buffer
             auto sp = buffer_ptr<T>(ptr, *this);
@@ -148,21 +166,35 @@ class recycle_memory {
 
         }
 
-        /* give a shared pointer back to be queued for operation */
+        /* give a shared pointer back to be queued for operation 
+         * NOTE: this is a blocking operation
+         */
         void queue(buffer_ptr<T> ptr) {
+            std::lock_guard<std::mutex> guard(change_mutex);
             change.push(ptr);
             return;
         }
 
-        /* get a shared pointer from the queue to operate on */
+        /* get a shared pointer from the queue to operate on  
+         * NOTE: this is a blocking operation until a buffer is queued
+         */
         buffer_ptr<T> operate() {
-            // take a reuseable_buffer off the queue - block until we have one
-            // TODO: need to make these queues locking for safety
-            while (change.empty()) {
-                sleep(0.1);
+            // lock mutex and check size of queue until it's not empty
+            bool check_change = true;
+            while(check_change) {
+                if (change_mutex.try_lock()) {
+                    if (!change.empty()) {
+                        check_change = false;
+                    } else {
+                        change_mutex.unlock();
+                        sleep(0.1);
+                    }
+                }
             }
+
             buffer_ptr<T> r = change.front();
             change.pop();
+            change_mutex.unlock();
 
             return r;
         }
