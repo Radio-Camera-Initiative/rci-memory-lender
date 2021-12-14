@@ -22,29 +22,50 @@ class recycle_memory;
 
 template <typename T>
 struct reuseable_buffer {
-    // TODO: array indexing operations
+    private:
+        recycle_memory<T>& recycle;
+    
+    public:
 
     // TODO: check whether this kills the memory in the shared pointer while we are at it
-    T* ptr; // this could be a shared_pointewr
+    T* ptr; // this could be a shared_pointer
     std::vector<size_t> shape;
 
-    reuseable_buffer(std::vector<size_t> s, T* p, recycle_memory<T>& r) : recycle(r) {
-        shape = s;
+    reuseable_buffer(T* p, recycle_memory<T>& r) : recycle(r) {
+        shape = recycle.shape;
         ptr = p;
     }
 
     // TODO: is it needed to explicitly call the shared_ptr destructor?
     ~reuseable_buffer() {
-        recycle._return_memory(ptr);
-    };
-
-    private:
-        recycle_memory<T>& recycle;
+        recycle.return_memory(ptr);
+    }
 };
 
 /* buffer typedef for shared_ptrs */
 template <typename T>
-using buffer_ptr = std::shared_ptr<reuseable_buffer<T>>;
+class buffer_ptr {
+    std::shared_ptr<reuseable_buffer<T>> sp;
+
+    public:
+
+        buffer_ptr(T* memory, recycle_memory<T>& recycler) {
+            sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
+        }
+
+        ~buffer_ptr() {}
+
+        // really im just putting these here because they were there for shared_ptr
+        T& operator*() const noexcept {
+            return *(sp->ptr);
+        }
+
+        T* operator->() const noexcept {
+            return sp.get();
+        }
+    
+    // TODO: array indexing operations
+};
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
  *
@@ -53,11 +74,18 @@ using buffer_ptr = std::shared_ptr<reuseable_buffer<T>>;
  */
 template <typename T>
 class recycle_memory {
+    friend struct reuseable_buffer<T>;
+
     // has a vector of recycle_memory struct pointers.
     private:
         std::vector<size_t> shape;
         std::queue<buffer_ptr<T>> change;
         std::queue<T*> free;
+
+        void return_memory(T* p) {
+            free.push(p);
+            return;
+        }
 
     public:
         /*
@@ -115,7 +143,7 @@ class recycle_memory {
             free.pop();
 
             // make reuseable_buffer for the buffer
-            auto sp = std::make_shared<reuseable_buffer<T>>(shape, ptr, *this);
+            auto sp = buffer_ptr<T>(ptr, *this);
             return sp;
 
         }
@@ -139,16 +167,11 @@ class recycle_memory {
             return r;
         }
 
-        void _return_memory(T* p) {
-            free.push(p);
-            return;
-        }
-
-        int _free_size() {
+        int private_free_size() {
             return free.size();
         }
 
-        int _queue_size() {
+        int private_queue_size() {
             return change.size();
         }
 };

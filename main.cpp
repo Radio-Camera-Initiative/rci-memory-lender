@@ -10,7 +10,7 @@
 void make_vis(recycle_memory<int>& r3) {
     //TODO: make multiple buffers
     buffer_ptr<int> r = r3.fill();
-    *r->ptr = 5;
+    *r = 5;
     r3.queue(r);
 }
 
@@ -18,7 +18,7 @@ void make_vis(recycle_memory<int>& r3) {
 void read_vis(buffer_ptr<int> vis) {
     //std::ofstream file;
     //file.open("test.txt");
-    std::cout << "vis:" << *vis->ptr << std::endl;
+    std::cout << "vis:" << *vis << std::endl;
     //file.close();
 }
 
@@ -26,8 +26,8 @@ void read_vis(buffer_ptr<int> vis) {
 void change_vis(recycle_memory<int>& r3) {
     // what is the condition that needs to be here? will this need to be a condition?
     buffer_ptr<int> vis = r3.operate();
-    int i = *vis->ptr;
-    *vis->ptr = i+1;
+    int i = *vis;
+    *vis = i+1;
     std::thread reading(read_vis, vis);
 
     reading.join();
@@ -37,7 +37,7 @@ void test_int() {
     // make the class
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     recycle_memory<int> r3 = recycle_memory<int>(shape, 1); 
-    std::cout << r3._free_size() << std::endl;
+    std::cout << r3.private_free_size() << std::endl;
 
 
     // make a thread to be making visibilities
@@ -49,7 +49,7 @@ void test_int() {
     making.join();
     changing.join();
     
-    std::cout << r3._free_size() << std::endl;
+    std::cout << r3.private_free_size() << std::endl;
 }
 
 int main(int argc, char** argv) {
