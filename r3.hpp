@@ -3,48 +3,56 @@
 
 #include <vector>
 #include <queue>
-#include <complex>
-#include <atomic>
 #include <memory>
 #include <new>
-#include <unistd.h>
-
-#include <iostream>
+#include <mutex>
+#include <condition_variable>
 
 template <typename T>
 class recycle_memory;
 
-// The base class for the pointer will need to be extendable to ALL types that
-// the memory system will use
-// NOTE: this is a very shallow class, as the memory management is going to be
-// dealing with handing the pointer to threads
-
-
 template <typename T>
 struct reuseable_buffer {
-    // TODO: array indexing operations
-
-    // TODO: check whether this kills the memory in the shared pointer while we are at it
-    T* ptr; // this could be a shared_pointewr
-    std::vector<size_t> shape;
-
-    reuseable_buffer(std::vector<size_t> s, T* p, recycle_memory<T>& r) : recycle(r) {
-        shape = s;
-        ptr = p;
-    }
-
-    // TODO: is it needed to explicitly call the shared_ptr destructor?
-    ~reuseable_buffer() {
-        recycle._return_memory(ptr);
-    };
-
     private:
         recycle_memory<T>& recycle;
+    
+    public:
+        // if this was shared_ptr, would memory be deleted at destruction?
+        T* ptr; 
+        std::vector<size_t> shape;
+
+        reuseable_buffer(T* p, recycle_memory<T>& r) : recycle(r) {
+            shape = recycle.shape;
+            ptr = p;
+        }
+
+        ~reuseable_buffer() {
+            recycle.return_memory(ptr);
+        }
 };
 
-/* buffer typedef for shared_ptrs */
+/* wrapper object for shared_ptrs */
 template <typename T>
-using buffer_ptr = std::shared_ptr<reuseable_buffer<T>>;
+class buffer_ptr {
+    std::shared_ptr<reuseable_buffer<T>> sp;
+
+    public:
+
+        buffer_ptr(T* memory, recycle_memory<T>& recycler) {
+            sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
+        }
+
+        // const noexcept are here because shared_ptr had them. tbd on removing
+        T& operator*() const noexcept {
+            return *(sp->ptr);
+        }
+
+        T* operator->() const noexcept {
+            return sp.get();
+        }
+    
+    // TODO: array indexing operations
+};
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
  *
@@ -53,30 +61,49 @@ using buffer_ptr = std::shared_ptr<reuseable_buffer<T>>;
  */
 template <typename T>
 class recycle_memory {
+    friend struct reuseable_buffer<T>;
+
     // has a vector of recycle_memory struct pointers.
     private:
-        std::vector<size_t> shape;
-        std::queue<buffer_ptr<T>> change;
-        std::queue<T*> free;
+        const std::vector<size_t> shape;
+        std::queue<buffer_ptr<T>> change_q;
+        std::mutex change_mutex;
+        std::condition_variable change_variable;
+        std::queue<T*> free_q;
+        std::mutex free_mutex;
+        std::condition_variable free_variable;
+
+        void return_memory(T* p) {
+            std::unique_lock<std::mutex> guard(free_mutex);
+            free_q.push(p);
+            guard.unlock();
+            free_variable.notify_one();
+        }
+
+        bool change_condition() {
+            return !change_q.empty();
+        }
+
+        bool free_condition() {
+            return !free_q.empty();
+        }
 
     public:
         /*
-         * Instantiator takes in list of all type signatures with their shapes
-         * (and maybe names - might require names actually)
-         *
-         * for each type, expect:
-         *     type
-         *     shape
-         *     maximum number (if applicable)
-         *     constructor
-         *     destructor
+         * Instantiator takes in only one type (from the template), 
+         * the shape and the max number of buffers for this type. This means
+         * recycle_memory will not exceed a certain memory size.
          */
-        recycle_memory(std::vector<size_t> s, unsigned int max) {
-            change = std::queue<buffer_ptr<T>>();
-            free = std::queue<T*>();
-            shape = s;
+        recycle_memory(std::vector<size_t> s, unsigned int max) : shape(s) {
+            change_q = std::queue<buffer_ptr<T>>();
+            free_q = std::queue<T*>();
 
-            // make all the new ints here to put in the free list
+            // No other thread should interfere in the constructor, but this 
+            // is to prevent any instruction reordering
+            std::lock_guard<std::mutex> guard(free_mutex);
+
+            // Centralize allocation avoid waiting later on. Assumes all 
+            // memory is used
             for (unsigned int i = 0; i < max; i++) {
                 // use nothrow because we don't do anything with the exception
                 T* temp = new(std::nothrow) T();
@@ -85,7 +112,7 @@ class recycle_memory {
                     // we could set a different value as max in the object
                     break;
                 }
-                free.push(temp);
+                free_q.push(temp);
             }
         }
         /*
@@ -95,62 +122,70 @@ class recycle_memory {
         ~recycle_memory() {
             // TODO: make sure all buffers have released their memory to free
 
-            while (!free.empty()) {
-                T* temp = free.front(); 
-                free.pop();
+            std::lock_guard<std::mutex> guard(free_mutex);
+
+            while (!free_q.empty()) {
+                T* temp = free_q.front(); 
+                free_q.pop();
                 if (temp != NULL) {
                     delete temp;
                 }
             }
         }
 
-        /* get a shared pointer to the buffer we want to fill with data */
+        /* get a shared pointer to the buffer we want to fill with data 
+         * NOTE: this is a blocking operation until a buffer is free
+         */
         buffer_ptr<T> fill() {
 
-            // if free list is empty, wait for memory to be freed
-            while (free.empty()) {
-                sleep(0.1);
+            std::unique_lock<std::mutex> lock(free_mutex);
+            while(free_q.empty()) {  
+                free_variable.wait(lock);
             }
-            // else take from free list
-            T* ptr = free.front();
-            free.pop();
+
+            // take from free list
+            T* ptr = free_q.front();
+            free_q.pop();
 
             // make reuseable_buffer for the buffer
-            auto sp = std::make_shared<reuseable_buffer<T>>(shape, ptr, *this);
+            auto sp = buffer_ptr<T>(ptr, *this);
             return sp;
 
         }
 
-        /* give a shared pointer back to be queued for operation */
+        /* give a shared pointer back to be queued for operation 
+         * NOTE: this is a blocking operation
+         */
         void queue(buffer_ptr<T> ptr) {
-            change.push(ptr);
-            return;
+            std::unique_lock<std::mutex> guard(change_mutex);
+            change_q.push(ptr);
+            guard.unlock();
+            change_variable.notify_one();
         }
 
-        /* get a shared pointer from the queue to operate on */
+        /* get a shared pointer from the queue to operate on  
+         * NOTE: this is a blocking operation until a buffer is queued
+         */
         buffer_ptr<T> operate() {
-            // take a reuseable_buffer off the queue - block until we have one
-            // TODO: need to make these queues locking for safety
-            while (change.empty()) {
-                sleep(0.1);
+
+            std::unique_lock<std::mutex> lock(change_mutex);
+            while (change_q.empty()) {
+                change_variable.wait(lock);
             }
-            buffer_ptr<T> r = change.front();
-            change.pop();
+
+            buffer_ptr<T> r = change_q.front();
+            change_q.pop();
+            change_mutex.unlock();
 
             return r;
         }
 
-        void _return_memory(T* p) {
-            free.push(p);
-            return;
+        int private_free_size() {
+            return free_q.size();
         }
 
-        int _free_size() {
-            return free.size();
-        }
-
-        int _queue_size() {
-            return change.size();
+        int private_queue_size() {
+            return change_q.size();
         }
 };
 
