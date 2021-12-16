@@ -3,23 +3,13 @@
 
 #include <vector>
 #include <queue>
-#include <complex>
-#include <atomic>
 #include <memory>
 #include <new>
 #include <mutex>
-#include <unistd.h>
-
-#include <iostream>
+#include <condition_variable>
 
 template <typename T>
 class recycle_memory;
-
-// The base class for the pointer will need to be extendable to ALL types that
-// the memory system will use
-// NOTE: this is a very shallow class, as the memory management is going to be
-// dealing with handing the pointer to threads
-
 
 template <typename T>
 struct reuseable_buffer {
@@ -27,23 +17,21 @@ struct reuseable_buffer {
         recycle_memory<T>& recycle;
     
     public:
+        // if this was shared_ptr, would memory be deleted at destruction?
+        T* ptr; 
+        std::vector<size_t> shape;
 
-    // TODO: check whether this kills the memory in the shared pointer while we are at it
-    T* ptr; // this could be a shared_pointer
-    std::vector<size_t> shape;
+        reuseable_buffer(T* p, recycle_memory<T>& r) : recycle(r) {
+            shape = recycle.shape;
+            ptr = p;
+        }
 
-    reuseable_buffer(T* p, recycle_memory<T>& r) : recycle(r) {
-        shape = recycle.shape;
-        ptr = p;
-    }
-
-    // TODO: is it needed to explicitly call the shared_ptr destructor?
-    ~reuseable_buffer() {
-        recycle.return_memory(ptr);
-    }
+        ~reuseable_buffer() {
+            recycle.return_memory(ptr);
+        }
 };
 
-/* buffer typedef for shared_ptrs */
+/* wrapper object for shared_ptrs */
 template <typename T>
 class buffer_ptr {
     std::shared_ptr<reuseable_buffer<T>> sp;
@@ -54,9 +42,7 @@ class buffer_ptr {
             sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
         }
 
-        ~buffer_ptr() {}
-
-        // really im just putting these here because they were there for shared_ptr
+        // const noexcept are here because shared_ptr had them. tbd on removing
         T& operator*() const noexcept {
             return *(sp->ptr);
         }
@@ -80,36 +66,44 @@ class recycle_memory {
     // has a vector of recycle_memory struct pointers.
     private:
         const std::vector<size_t> shape;
-        std::queue<buffer_ptr<T>> change;
+        std::queue<buffer_ptr<T>> change_q;
         std::mutex change_mutex;
-        std::queue<T*> free;
+        std::condition_variable change_variable;
+        std::queue<T*> free_q;
         std::mutex free_mutex;
+        std::condition_variable free_variable;
 
         void return_memory(T* p) {
-            std::lock_guard<std::mutex> guard(free_mutex);
-            free.push(p);
-            return;
+            std::unique_lock<std::mutex> guard(free_mutex);
+            free_q.push(p);
+            guard.unlock();
+            free_variable.notify_one();
+        }
+
+        bool change_condition() {
+            return !change_q.empty();
+        }
+
+        bool free_condition() {
+            return !free_q.empty();
         }
 
     public:
         /*
-         * Instantiator takes in list of all type signatures with their shapes
-         * (and maybe names - might require names actually)
-         *
-         * for each type, expect:
-         *     type
-         *     shape
-         *     maximum number (if applicable)
-         *     constructor
-         *     destructor
+         * Instantiator takes in only one type (from the template), 
+         * the shape and the max number of buffers for this type. This means
+         * recycle_memory will not exceed a certain memory size.
          */
         recycle_memory(std::vector<size_t> s, unsigned int max) : shape(s) {
-            change = std::queue<buffer_ptr<T>>();
-            free = std::queue<T*>();
+            change_q = std::queue<buffer_ptr<T>>();
+            free_q = std::queue<T*>();
 
+            // No other thread should interfere in the constructor, but this 
+            // is to prevent any instruction reordering
             std::lock_guard<std::mutex> guard(free_mutex);
 
-            // make all the new ints here to put in the free list
+            // Centralize allocation avoid waiting later on. Assumes all 
+            // memory is used
             for (unsigned int i = 0; i < max; i++) {
                 // use nothrow because we don't do anything with the exception
                 T* temp = new(std::nothrow) T();
@@ -117,7 +111,7 @@ class recycle_memory {
                     // we could set a different value as max in the object
                     break;
                 }
-                free.push(temp);
+                free_q.push(temp);
             }
         }
         /*
@@ -129,9 +123,9 @@ class recycle_memory {
 
             std::lock_guard<std::mutex> guard(free_mutex);
 
-            while (!free.empty()) {
-                T* temp = free.front(); 
-                free.pop();
+            while (!free_q.empty()) {
+                T* temp = free_q.front(); 
+                free_q.pop();
                 if (temp != NULL) {
                     delete temp;
                 }
@@ -142,23 +136,15 @@ class recycle_memory {
          * NOTE: this is a blocking operation until a buffer is free
          */
         buffer_ptr<T> fill() {
-            // lock mutex and check size of queue until it's not empty
-            bool check_free = true;
-            while(check_free) {
-                if (free_mutex.try_lock()) {
-                    if (!free.empty()) {
-                        check_free = false;
-                    } else {
-                        free_mutex.unlock();
-                        sleep(0.1);
-                    }
-                }
+
+            std::unique_lock<std::mutex> lock(free_mutex);
+            while(free_q.empty()) {  
+                free_variable.wait(lock);
             }
 
             // take from free list
-            T* ptr = free.front();
-            free.pop();
-            free_mutex.unlock();
+            T* ptr = free_q.front();
+            free_q.pop();
 
             // make reuseable_buffer for the buffer
             auto sp = buffer_ptr<T>(ptr, *this);
@@ -170,41 +156,35 @@ class recycle_memory {
          * NOTE: this is a blocking operation
          */
         void queue(buffer_ptr<T> ptr) {
-            std::lock_guard<std::mutex> guard(change_mutex);
-            change.push(ptr);
-            return;
+            std::unique_lock<std::mutex> guard(change_mutex);
+            change_q.push(ptr);
+            guard.unlock();
+            change_variable.notify_one();
         }
 
         /* get a shared pointer from the queue to operate on  
          * NOTE: this is a blocking operation until a buffer is queued
          */
         buffer_ptr<T> operate() {
-            // lock mutex and check size of queue until it's not empty
-            bool check_change = true;
-            while(check_change) {
-                if (change_mutex.try_lock()) {
-                    if (!change.empty()) {
-                        check_change = false;
-                    } else {
-                        change_mutex.unlock();
-                        sleep(0.1);
-                    }
-                }
+
+            std::unique_lock<std::mutex> lock(change_mutex);
+            while (change_q.empty()) {
+                change_variable.wait(lock);
             }
 
-            buffer_ptr<T> r = change.front();
-            change.pop();
+            buffer_ptr<T> r = change_q.front();
+            change_q.pop();
             change_mutex.unlock();
 
             return r;
         }
 
         int private_free_size() {
-            return free.size();
+            return free_q.size();
         }
 
         int private_queue_size() {
-            return change.size();
+            return change_q.size();
         }
 };
 
