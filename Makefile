@@ -1,5 +1,5 @@
 CC = /usr/bin/g++
-FLAGS = -std=c++17
+FLAGS = -std=c++2a -g
 INCLUDE = -I.
 
 LD_FLAGS = -lrt -Wall -lpthread

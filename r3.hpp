@@ -3,29 +3,55 @@
 
 #include <vector>
 #include <queue>
-#include <complex>
-#include <atomic>
-#include <unistd.h>
+#include <memory>
+#include <new>
+#include <mutex>
+#include <condition_variable>
 
-// The base class for the pointer will need to be extendable to ALL types that
-// the memory system will use
-// NOTE: this is a very shallow class, as the memory management is going to be
-// dealing with handing the pointer to threads
+template <typename T>
+class recycle_memory;
+
 template <typename T>
 struct reuseable_buffer {
-// TODO: why not just a std::shared_ptr? -> need shape?
-    std::atomic_int read;
-    std::vector<size_t> shape;
-    T *ptr; // vector of visibilities
+    private:
+        recycle_memory<T>& recycle;
+    
+    public:
+        // if this was shared_ptr, would memory be deleted at destruction?
+        T* ptr; 
+        std::vector<size_t> shape;
 
-    reuseable_buffer(std::vector<size_t> s, T* p) : read(0){
-        shape = s;
-        ptr = p;
-    }
+        reuseable_buffer(T* p, recycle_memory<T>& r) : recycle(r) {
+            shape = recycle.shape;
+            ptr = p;
+        }
 
-    reuseable_buffer(const reuseable_buffer<T> &r) : read(0){}
+        ~reuseable_buffer() {
+            recycle.return_memory(ptr);
+        }
+};
 
-    ~reuseable_buffer() {};
+/* wrapper object for shared_ptrs */
+template <typename T>
+class buffer_ptr {
+    std::shared_ptr<reuseable_buffer<T>> sp;
+
+    public:
+
+        buffer_ptr(T* memory, recycle_memory<T>& recycler) {
+            sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
+        }
+
+        // const noexcept are here because shared_ptr had them. tbd on removing
+        T& operator*() const noexcept {
+            return *(sp->ptr);
+        }
+
+        T* operator->() const noexcept {
+            return sp.get();
+        }
+    
+    // TODO: array indexing operations
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -33,115 +59,135 @@ struct reuseable_buffer {
  * recycle_memory needs to store unused memory for a particular type
  * needs to store queues for threads to take from
  */
-// TODO: will need to convert this into a variadic template
 template <typename T>
 class recycle_memory {
+    friend struct reuseable_buffer<T>;
+
     // has a vector of recycle_memory struct pointers.
     private:
-        std::vector<size_t> shape;
-        std::queue<reuseable_buffer<T>*> operate;
-        std::queue<T*> free;
+        const std::vector<size_t> shape;
+        std::queue<buffer_ptr<T>> change_q;
+        std::mutex change_mutex;
+        std::condition_variable change_variable;
+        std::queue<T*> free_q;
+        std::mutex free_mutex;
+        std::condition_variable free_variable;
+
+        void return_memory(T* p) {
+            std::unique_lock<std::mutex> guard(free_mutex);
+            free_q.push(p);
+            guard.unlock();
+            free_variable.notify_one();
+        }
+
+        bool change_condition() {
+            return !change_q.empty();
+        }
+
+        bool free_condition() {
+            return !free_q.empty();
+        }
 
     public:
-        typedef void(*func)(recycle_memory<T>& r3, reuseable_buffer<T>* r);
         /*
-         * Instantiator takes in list of all type signatures with their shapes
-         * (and maybe names - might require names actually)
-         *
-         * for each type, expect:
-         *     type
-         *     shape
-         *     maximum number (if applicable)
-         *     constructor
-         *     destructor
+         * Instantiator takes in only one type (from the template), 
+         * the shape and the max number of buffers for this type. This means
+         * recycle_memory will not exceed a certain memory size.
          */
-        recycle_memory(std::vector<size_t> s, unsigned int max) {
-            std::queue<T> operate();
-            std::queue<T> free();
-            s = shape;
+        recycle_memory(std::vector<size_t> s, unsigned int max) : shape(s) {
+            change_q = std::queue<buffer_ptr<T>>();
+            free_q = std::queue<T*>();
+
+            // No other thread should interfere in the constructor, but this 
+            // is to prevent any instruction reordering
+            std::lock_guard<std::mutex> guard(free_mutex);
+
+            // Centralize allocation avoid waiting later on. Assumes all 
+            // memory is used
+            for (unsigned int i = 0; i < max; i++) {
+                // use nothrow because we don't do anything with the exception
+                T* temp = new(std::nothrow) T();
+                if (temp == nullptr) {
+                    // we could set a different value as max in the object
+                    break;
+                }
+                free_q.push(temp);
+            }
         }
         /*
          * Destructor must destroy ALL memory that was allocated using their
          * corresponding destructors
          */
         ~recycle_memory() {
-        }
+            // TODO: make sure all buffers have released their memory to free
 
-        /* use a name to get the pointer that we want to start filling */
-        reuseable_buffer<T>* new_ptr() {
-            // empty ptr
-            T* ptr;
+            std::lock_guard<std::mutex> guard(free_mutex);
 
-            // if free list is empty, make a new buffer
-            if (free.empty()) {
-                // making a new buffer might use a type-specific constructor
-                ptr = new T;
-            } else {
-                // else take from free list
-                ptr = free.front();
-                free.pop();
-            }
-
-            // make reuseable_buffer for the buffer, increment the count and return it
-            reuseable_buffer<T>* r = new reuseable_buffer<T>(shape, ptr);
-            r->read++;
-            return r;
-
-        }
-
-        /* give a pointer back to be queued for operation */
-        void queue_ptr(reuseable_buffer<T>* atomic_shared_ptr) {
-            // decrement the reuseable_buffer count and put it in the operation queue
-            atomic_shared_ptr->read--;
-            operate.push(atomic_shared_ptr);
-            return;
-        }
-
-        /* use a name to give a pointer back to be operated on */
-        // TODO: how does this template if we don't have a particular type?
-        //       best I can come up with is use T but always pass a nullptr?
-        reuseable_buffer<T>* start_operation() {
-            // take a reuseable_buffer off the queue - block until we have one
-            //TODO: need to make these queues locking for the mutex stuff
-            while (operate.empty()) {
-                sleep(0.1);
-            }
-            reuseable_buffer<T>* r = operate.front();
-            operate.pop();
-
-            // increment the reuseable_buffer and pass to the caller
-            r->read++;
-            return r;
-        }
-
-        /* end a threads operation on the pointer whether it be read or write */
-        void end_operation(reuseable_buffer<T>* atomic_shared_ptr, std::vector<func>* read_threads) { // TODO: the threads also need to have the function passed?
-            // for each read_thread increment the atomic ref count and pass the ptr
-            /* read_threads can and SHOULD be null for a reader thread getting rid of
-             * their pointer */
-            if (read_threads != NULL) {
-                for(typename std::vector<func>::iterator iter = read_threads->begin();
-                    iter != read_threads->end();
-                    iter++
-                ) {
-                    func f = *iter;
-                    atomic_shared_ptr->read++;
-                    std::thread th (f, std::ref(*this), atomic_shared_ptr); // start the thread with the pointer
-                    // TODO: the thread needs to get a const - but how is that const passed back to this function?
+            while (!free_q.empty()) {
+                T* temp = free_q.front(); 
+                free_q.pop();
+                if (temp != NULL) {
+                    delete temp;
                 }
             }
+        }
 
-            // decrement the atomic_shared_ptr for the caller
-            atomic_shared_ptr->read--;
+        /* get a shared pointer to the buffer we want to fill with data 
+         * NOTE: this is a blocking operation until a buffer is free
+         */
+        buffer_ptr<T> fill() {
 
-            // if ref count 0 then collect reuseable_buffer class and add buffer to free list
-            if (atomic_shared_ptr->read == 0) {
-                free.push(atomic_shared_ptr->ptr);
-                // delete reuseable_buffer class made for this
-                delete atomic_shared_ptr;
+            std::unique_lock<std::mutex> lock(free_mutex);
+            while(free_q.empty()) {  
+                free_variable.wait(lock);
             }
-            return;
+
+            // take from free list
+            T* ptr = free_q.front();
+            free_q.pop();
+
+            // make reuseable_buffer for the buffer
+            auto sp = buffer_ptr<T>(ptr, *this);
+            return sp;
+
+        }
+
+        /* give a shared pointer back to be queued for operation 
+         * NOTE: this is a blocking operation
+         */
+        void queue(buffer_ptr<T> ptr) {
+            std::unique_lock<std::mutex> guard(change_mutex);
+            change_q.push(ptr);
+            guard.unlock();
+            change_variable.notify_one();
+        }
+
+        /* get a shared pointer from the queue to operate on  
+         * NOTE: this is a blocking operation until a buffer is queued
+         */
+        buffer_ptr<T> operate() {
+
+            std::unique_lock<std::mutex> lock(change_mutex);
+            while (change_q.empty()) {
+                change_variable.wait(lock);
+            }
+
+            buffer_ptr<T> r = change_q.front();
+            change_q.pop();
+            change_mutex.unlock();
+
+            return r;
+        }
+
+        int private_free_size() {
+            return free_q.size();
+        }
+
+        int private_queue_size() {
+            return change_q.size();
         }
 };
+
+// TODO: make memory_collection: variadic template for as many buffer types as we want.
 
 #endif
