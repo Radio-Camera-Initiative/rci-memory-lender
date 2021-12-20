@@ -47,8 +47,12 @@ class buffer_ptr {
             return *(sp->ptr);
         }
 
-        T* operator->() const noexcept {
+        reuseable_buffer<T>* operator->() const noexcept {
             return sp.get();
+        }
+
+        int use_count() {
+            return sp.use_count();
         }
     
     // TODO: array indexing operations
