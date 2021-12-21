@@ -32,7 +32,7 @@ void test_int() {
     // make the class
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     int max = 1;
-    recycle_memory<int> r3 = recycle_memory<int>(shape, max); 
+    recycle_memory<int> r3(shape, max); 
     std::cout << r3.private_free_size() << std::endl;
 
 

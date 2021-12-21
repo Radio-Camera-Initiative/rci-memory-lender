@@ -42,6 +42,8 @@ class buffer_ptr {
             sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
         }
 
+        ~buffer_ptr(){}
+
         // const noexcept are here because shared_ptr had them. tbd on removing
         T& operator*() const noexcept {
             return *(sp->ptr);
