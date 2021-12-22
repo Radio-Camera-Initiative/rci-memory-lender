@@ -51,15 +51,15 @@ void unit_test::check_buffer_destruction(
     int max
 ) {
     // -> check number of free is max
-    buffer_ptr<int> p = recycler->fill();
+    {
+        buffer_ptr<int> p = recycler->fill();
 
-    EXPECT_EQ(recycler->private_free_size(),  max - 1) << "Expected " + 
-        std::to_string(max - 1) + " free buffers. Have " + 
-        std::to_string(recycler->private_free_size());
+        EXPECT_EQ(recycler->private_free_size(),  max - 1) << "Expected " + 
+            std::to_string(max - 1) + " free buffers. Have " + 
+            std::to_string(recycler->private_free_size());
 
-    EXPECT_EQ(p.use_count(), 1) << "Too many shared_pointer owners.";
-
-    p.~buffer_ptr();
+        EXPECT_EQ(p.use_count(), 1) << "Too many shared_pointer owners.";
+    }
 
     // here we assume that destruction of the buffer was done automatically 
     // when out of scope
@@ -187,38 +187,41 @@ void unit_test::wait_take_from_fill_threaded(
     int max
 ) {
 // -> check that the last one waits
-    auto b = recycler->fill();
     bool waiting_unsafe = false;
-    std::shared_ptr<std::condition_variable> cv = std::make_shared<std::condition_variable>();
-    std::mutex m;
+    std::thread check;
+    {
+        auto b = recycler->fill();
+        
+        std::shared_ptr<std::condition_variable> cv = std::make_shared<std::condition_variable>();
+        std::mutex m;
 
-    ASSERT_EQ(b.use_count(), 1) << 
-        "Unexpected reference count. Expected 1 and got " + 
-        std::to_string(b.use_count());
+        ASSERT_EQ(b.use_count(), 1) << 
+            "Unexpected reference count. Expected 1 and got " + 
+            std::to_string(b.use_count());
 
-    std::thread check(thread_wait_fill, recycler, cv, std::ref(waiting_unsafe));
+        check = std::thread(thread_wait_fill, recycler, cv, std::ref(waiting_unsafe));
 
-    std::unique_lock<std::mutex> lk(m);
-    while(!waiting_unsafe) {
-        cv->wait(lk);
+        std::unique_lock<std::mutex> lk(m);
+        while(!waiting_unsafe) {
+            cv->wait(lk);
+        }
+
+        *b = 5; // this needs to take long enough for the thread to set waiting_unsafe
+        ASSERT_EQ(*b, 5) << "Unexpected value. Expected " + 
+            std::to_string(5) + " but got " + std::to_string(*b);
+        
+        ASSERT_EQ(b.use_count(), 1) << 
+            "Unexpected reference count. Expected 1 and got " + 
+            std::to_string(b.use_count());
+
+        ASSERT_TRUE(waiting_unsafe) << 
+            "Thread did not wait for buffer to be available";
+
+        EXPECT_EQ(b.use_count(), 1) << 
+            "Unexpected reference count. Expected 1 and got " + 
+            std::to_string(b.use_count());
     }
 
-    *b = 5; // this needs to take long enough for the thread to set waiting_unsafe
-    ASSERT_EQ(*b, 5) << "Unexpected value. Expected " + 
-        std::to_string(5) + " but got " + std::to_string(*b);
-    
-    ASSERT_EQ(b.use_count(), 1) << 
-        "Unexpected reference count. Expected 1 and got " + 
-        std::to_string(b.use_count());
-
-    ASSERT_TRUE(waiting_unsafe) << 
-        "Thread did not wait for buffer to be available";
-
-    EXPECT_EQ(b.use_count(), 1) << 
-        "Unexpected reference count. Expected 1 and got " + 
-        std::to_string(b.use_count());
-
-    b.~buffer_ptr();
     check.join();
 
     EXPECT_FALSE(waiting_unsafe) << 
@@ -267,13 +270,14 @@ void unit_test::buffer_from_empty_queue_threaded(
     ASSERT_TRUE(waiting_unsafe) << 
         "Thread did not wait for buffer to be available";
 
-    auto b = recycler->fill();
-    *b = 5;
-    ASSERT_EQ(b.use_count(), 1) << 
-        "Unexpected reference count. Expected 1 and got " + 
-        std::to_string(b.use_count());
-    recycler->queue(b);
-    b.~buffer_ptr();
+    {
+        auto b = recycler->fill();
+        *b = 5;
+        ASSERT_EQ(b.use_count(), 1) << 
+            "Unexpected reference count. Expected 1 and got " + 
+            std::to_string(b.use_count());
+        recycler->queue(b);
+    }
 
     check.join();
 
