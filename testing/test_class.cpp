@@ -134,9 +134,8 @@ void unit_test::queue_buffer_from_fill (std::shared_ptr<recycle_memory<int>> rec
 /* Thread safety/ concurrency tests */
 
 void thread_read(buffer_ptr<int> b, int data) {
-    // TODO: Actually expecting 2, why are 2 more ref counts made?
-    EXPECT_EQ(b.use_count(), 3) << 
-        "Unexpected reference count. Expected 3 and got " + 
+    EXPECT_EQ(b.use_count(), 2) << 
+        "Unexpected reference count. Expected 2 and got " + 
         std::to_string(b.use_count());
     
     EXPECT_EQ(*b, data) << "Unexpected value. Expected " + 

@@ -34,15 +34,16 @@ struct reuseable_buffer {
 /* wrapper object for shared_ptrs */
 template <typename T>
 class buffer_ptr {
-    std::shared_ptr<reuseable_buffer<T>> sp;
+    friend class unit_test;
+
+    private:
+        std::shared_ptr<reuseable_buffer<T>> sp;
 
     public:
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler) {
             sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
         }
-
-        ~buffer_ptr(){}
 
         // const noexcept are here because shared_ptr had them. tbd on removing
         T& operator*() const noexcept {
@@ -68,6 +69,7 @@ class buffer_ptr {
 template <typename T>
 class recycle_memory {
     friend struct reuseable_buffer<T>;
+    friend class unit_test;
 
     // has a vector of recycle_memory struct pointers.
     private:
@@ -92,6 +94,14 @@ class recycle_memory {
 
         bool free_condition() {
             return !free_q.empty();
+        }
+
+        int private_free_size() {
+            return free_q.size();
+        }
+
+        int private_queue_size() {
+            return change_q.size();
         }
 
     public:
@@ -184,14 +194,6 @@ class recycle_memory {
             change_mutex.unlock();
 
             return r;
-        }
-
-        int private_free_size() {
-            return free_q.size();
-        }
-
-        int private_queue_size() {
-            return change_q.size();
         }
 };
 
