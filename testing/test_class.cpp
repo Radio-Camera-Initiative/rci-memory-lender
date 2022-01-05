@@ -8,14 +8,10 @@
 #include "gtest/gtest.h"
 #include "test_class.hpp"
 
-/* TODO: is it ok if the user makes a buffer/ gives it memory outside of the 
- * recycle memory, and then uses the queue function?
- */
 
-/* recycle memory tests */
-// SETUP: these tests (almost) all need a recycle_memory object
-// TODO: make sure all tests work for arrays as well
-// TODO: make sure threadsafe
+/* single-threaded tests */
+// FUTURE: make sure all tests work for arrays as well
+// TODO: templatize these tests
 
 void unit_test::make_recycle_memory(std::vector<size_t> shape, int max) {
 // -> check correct number of free
@@ -25,7 +21,6 @@ void unit_test::make_recycle_memory(std::vector<size_t> shape, int max) {
         + std::to_string(max) + " buffers.";
 }
 
-// TODO: templatize these tests
 void unit_test::take_one_buffer_from_fill(
     std::shared_ptr<recycle_memory<int>> recycler, 
     std::vector<size_t> shape, 
@@ -134,8 +129,8 @@ void unit_test::queue_buffer_from_fill (std::shared_ptr<recycle_memory<int>> rec
 /* Thread safety/ concurrency tests */
 
 void thread_read(buffer_ptr<int> b, int data) {
-    EXPECT_EQ(b.use_count(), 2) << 
-        "Unexpected reference count. Expected 2 and got " + 
+    EXPECT_GE(b.use_count(), 2) << 
+        "Unexpected reference count. Expected at least 2 and got " + 
         std::to_string(b.use_count());
     
     EXPECT_EQ(*b, data) << "Unexpected value. Expected " + 
@@ -241,7 +236,6 @@ void thread_wait_queue(
     waiting_unsafe = true;
     cv->notify_one();
     auto b = recycler->operate();
-    // THis might be wrong because the unit test still has a shared pointer
     EXPECT_EQ(b.use_count(), 1) << 
         "Unexpected reference count. Expected 1 and got " + 
         std::to_string(b.use_count());
