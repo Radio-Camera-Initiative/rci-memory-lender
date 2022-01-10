@@ -13,6 +13,8 @@
 // FUTURE: make sure all tests work for arrays as well
 // TODO: templatize these tests
 
+// exercise creation of recycler
+
 void unit_test::make_recycle_memory(std::vector<size_t> shape, int max) {
 // -> check correct number of free
     recycle_memory<int> r(shape, max);
@@ -21,12 +23,14 @@ void unit_test::make_recycle_memory(std::vector<size_t> shape, int max) {
         + std::to_string(max) + " buffers.";
 }
 
+// exercise reference counts when taking buffer from fill queue
+
 void unit_test::take_one_buffer_from_fill(
     std::shared_ptr<recycle_memory<int>> recycler,
     std::vector<size_t> shape,
     int max
 ) {
-    // -> check shape, check number of free (max - 1), check num shared_ptr refs
+    // -> check shape, number of free (max - 1), num shared_ptr refs
     buffer_ptr<int> p = recycler->fill();
 
     for (int i = 0; i < shape.size(); i++) {
@@ -40,6 +44,9 @@ void unit_test::take_one_buffer_from_fill(
     EXPECT_EQ(p.use_count(), 1) << "Too many shared_pointer owners.";
 
 }
+
+// exercise releasing the shared pointer for a buffer and returning memory to
+// the recycler
 
 void unit_test::check_buffer_destruction(
     std::shared_ptr<recycle_memory<int>> recycler,
@@ -65,6 +72,7 @@ void unit_test::check_buffer_destruction(
 
 }
 
+// exercise buffers setting data separately from each other
 
 void unit_test::change_one_buffer(
     std::shared_ptr<recycle_memory<int>> recycler,
@@ -93,6 +101,9 @@ void unit_test::change_one_buffer(
         " but got " + std::to_string(*b2);
 
 }
+
+// exercise buffers changing values multiple times and it does not interfere 
+// with other buffers
 
 void unit_test::multi_change_buffer(
     std::shared_ptr<recycle_memory<int>> recycler,
@@ -145,7 +156,12 @@ void unit_test::multi_change_buffer(
 
 }
 
-void unit_test::queue_buffer_from_fill (std::shared_ptr<recycle_memory<int>> recycler, int max) {
+// exercise using the operating queue for completed (filled) buffers
+
+void unit_test::queue_buffer_from_fill (
+    std::shared_ptr<recycle_memory<int>> recycler, 
+    int max
+) {
 // -> check number of free, number of queue, number of shared_ptr refs
     auto b = recycler->fill();
 
@@ -189,10 +205,12 @@ void thread_read(buffer_ptr<int> b, int data) {
 
 }
 
+// change buffer from main thread and check that same data is read from another
+
 void unit_test::change_buffer_threaded(
     std::shared_ptr<recycle_memory<int>> recycler
 ) {
-    // -> check new data can be accessed from same & another shared_ptr instance (thread)
+    // -> check new data accessed from same & threads' shared_ptr instance
 
     auto b = recycler->fill();
     *b = 5;
@@ -211,12 +229,13 @@ void unit_test::change_buffer_threaded(
         std::to_string(b.use_count());
 }
 
-//  multiple multiple reading from
+//  change buffer multiple times and check correct data from multiple threads
+//  reading same buffer
 
 void unit_test::multi_change_buffer_threaded(
     std::shared_ptr<recycle_memory<int>> recycler
 ) {
-    // -> check new data can be accessed from same & another shared_ptr instance (thread)
+    // -> check new data accessed from same & threads' shared_ptr instance
 
     auto b = recycler->fill();
     *b = 5;
@@ -283,6 +302,8 @@ void thread_wait_fill(
     waiting_unsafe = false;
 }
 
+// exercise waiting for a buffer to become free for filling
+
 //NOTE: max must be 1 for this
 void unit_test::wait_take_from_fill_threaded(
     std::shared_ptr<recycle_memory<int>> recycler,
@@ -294,21 +315,23 @@ void unit_test::wait_take_from_fill_threaded(
     {
         auto b = recycler->fill();
 
-        std::shared_ptr<std::condition_variable> cv = std::make_shared<std::condition_variable>();
+        std::shared_ptr<std::condition_variable> cv = 
+            std::make_shared<std::condition_variable>();
         std::mutex m;
 
         ASSERT_EQ(b.use_count(), 1) <<
             "Unexpected reference count. Expected 1 and got " +
             std::to_string(b.use_count());
 
-        check = std::thread(thread_wait_fill, recycler, cv, std::ref(waiting_unsafe));
+        check = std::thread
+            (thread_wait_fill, recycler, cv, std::ref(waiting_unsafe));
 
         std::unique_lock<std::mutex> lk(m);
         while(!waiting_unsafe) {
             cv->wait(lk);
         }
 
-        *b = 5; // this needs to take long enough for the thread to set waiting_unsafe
+        *b = 5;
         ASSERT_EQ(*b, 5) << "Unexpected value. Expected " +
             std::to_string(5) + " but got " + std::to_string(*b);
 
@@ -350,6 +373,8 @@ void thread_wait_queue(
 
 }
 
+// exercise waiting for buffer from the operate queue
+
 void unit_test::buffer_from_empty_queue_threaded(
     std::shared_ptr<recycle_memory<int>> recycler,
     int max
@@ -358,7 +383,8 @@ void unit_test::buffer_from_empty_queue_threaded(
 // -> THEN it takes available buffer once queued, check buffer is same
 
     bool waiting_unsafe = false;
-    std::shared_ptr<std::condition_variable> cv = std::make_shared<std::condition_variable>();
+    std::shared_ptr<std::condition_variable> cv = 
+        std::make_shared<std::condition_variable>();
     std::mutex m;
 
     std::thread check(thread_wait_queue, recycler, cv, std::ref(waiting_unsafe));
@@ -391,33 +417,7 @@ void unit_test::buffer_from_empty_queue_threaded(
 }
 
 
-// exercise thread waiting for buffer where max is more than 1
-
-// void thread_fill_hold(
-//     std::shared_ptr<recycle_memory<int>> recycler,
-//     std::shared_ptr<std::condition_variable> cv,
-//     bool &waiting_unsafe
-// ) {
-//     std::mutex m;
-//     auto b = recycler->fill();
-
-//     EXPECT_EQ(b.use_count(), 1) <<
-//         "Unexpected reference count. Expected 1 and got " +
-//         std::to_string(b.use_count());
-
-//     *b = 5; // this needs to take long enough for the thread to set waiting_unsafe
-//     ASSERT_EQ(*b, 5) << "Unexpected value. Expected " +
-//         std::to_string(5) + " but got " + std::to_string(*b);
-
-//     std::unique_lock<std::mutex> lk(m);
-//     while(!waiting_unsafe) {
-//         cv->wait(lk);
-//     }
-
-//     ASSERT_TRUE(waiting_unsafe) <<
-//         "Thread did not wait for buffer to be available";
-
-// }
+// exercise thread waiting for buffer from fill where max is more than 1
 
 //NOTE: max must be >1 for this
 void unit_test::wait_multi_take_from_fill_threaded(
@@ -426,7 +426,8 @@ void unit_test::wait_multi_take_from_fill_threaded(
 ) {
 // -> check that the last one waits
     bool waiting_unsafe = false;
-    std::shared_ptr<std::condition_variable> cv = std::make_shared<std::condition_variable>();
+    std::shared_ptr<std::condition_variable> cv = 
+        std::make_shared<std::condition_variable>();
     std::mutex m;
     std::thread check;
 
@@ -441,12 +442,13 @@ void unit_test::wait_multi_take_from_fill_threaded(
             "Unexpected reference count. Expected 1 and got " +
             std::to_string(buffers[i].use_count());
 
-            *buffers[i] = 5; // this needs to take long enough for the thread to set waiting_unsafe
+            *buffers[i] = 5; 
             ASSERT_EQ(*buffers[i], 5) << "Unexpected value. Expected " +
                 std::to_string(5) + " but got " + std::to_string(*buffers[i]);
         }
 
-        check = std::thread(thread_wait_fill, recycler, cv, std::ref(waiting_unsafe));
+        check = std::thread
+            (thread_wait_fill, recycler, cv, std::ref(waiting_unsafe));
 
         std::unique_lock<std::mutex> lk(m);
         while(!waiting_unsafe) {
@@ -468,8 +470,8 @@ void unit_test::wait_multi_take_from_fill_threaded(
         std::to_string(recycler->private_free_size());
 }
 
-// TODO: exercise reference counting with the buffer & recycle (use a watcher)
-//       - to check if the recycler keeps a reference count when it is stored in a queue
+// exercise reference counting with the buffer & recycle (use a watcher)
+// to check if the recycler keeps reference count when stored in a queue
 
 void thread_watcher(
     buffer_ptr<int> p,
@@ -493,25 +495,29 @@ void unit_test::watcher_check_reference_counts(
 ) {
     bool operating_unsafe = true;
     int check_ref = 0;
-    std::shared_ptr<std::condition_variable> cv = std::make_shared<std::condition_variable>();
+    std::shared_ptr<std::condition_variable> cv = 
+        std::make_shared<std::condition_variable>();
     std::thread watcher;
 
     {
-        // std::unique_lock<std::mutex> lk_1(m);
         auto p = recycler->fill();
-        watcher = std::thread(thread_watcher, p, cv, std::ref(operating_unsafe), std::ref(check_ref));
+        watcher = std::thread(
+            thread_watcher, 
+            p, 
+            cv, 
+            std::ref(operating_unsafe), 
+            std::ref(check_ref)
+        );
         check_ref = 2;
         // notify
         cv->notify_one();
 
         // now queue
-        // std::unique_lock<std::mutex> lk_2(m);
         recycler->queue(p);
 
         cv->notify_one();
     }
 
-    // std::unique_lock<std::mutex> lk_3(m);
     auto p = recycler->operate();
     cv->notify_one();
 
@@ -520,6 +526,8 @@ void unit_test::watcher_check_reference_counts(
 }
 
 // TODO: exercise multiple writing threads
-// exercise passing by const, check reference count, check not able to change buffer
+// TODO: exercise passing by const; 
+//       -> check reference count, not able to change buffer
 
-// exercise destruction of pointer memory (cleanup of recycler) - might be valgrind??
+// TODO: exercise destruction of pointer memory (cleanup of recycler) 
+//       - might be valgrind??
