@@ -34,7 +34,10 @@ struct reuseable_buffer {
 /* wrapper object for shared_ptrs */
 template <typename T>
 class buffer_ptr {
-    std::shared_ptr<reuseable_buffer<T>> sp;
+    friend class unit_test;
+
+    private:
+        std::shared_ptr<reuseable_buffer<T>> sp;
 
     public:
 
@@ -47,8 +50,12 @@ class buffer_ptr {
             return *(sp->ptr);
         }
 
-        T* operator->() const noexcept {
+        reuseable_buffer<T>* operator->() const noexcept {
             return sp.get();
+        }
+
+        int use_count() {
+            return sp.use_count();
         }
     
     // TODO: array indexing operations
@@ -62,6 +69,7 @@ class buffer_ptr {
 template <typename T>
 class recycle_memory {
     friend struct reuseable_buffer<T>;
+    friend class unit_test;
 
     // has a vector of recycle_memory struct pointers.
     private:
@@ -88,6 +96,14 @@ class recycle_memory {
             return !free_q.empty();
         }
 
+        int private_free_size() {
+            return free_q.size();
+        }
+
+        int private_queue_size() {
+            return change_q.size();
+        }
+
     public:
         /*
          * Instantiator takes in only one type (from the template), 
@@ -107,6 +123,7 @@ class recycle_memory {
             for (unsigned int i = 0; i < max; i++) {
                 // use nothrow because we don't do anything with the exception
                 T* temp = new(std::nothrow) T();
+                // TODO: for testing this should be set to a known value
                 if (temp == nullptr) {
                     // we could set a different value as max in the object
                     break;
@@ -177,14 +194,6 @@ class recycle_memory {
             change_mutex.unlock();
 
             return r;
-        }
-
-        int private_free_size() {
-            return free_q.size();
-        }
-
-        int private_queue_size() {
-            return change_q.size();
         }
 };
 
