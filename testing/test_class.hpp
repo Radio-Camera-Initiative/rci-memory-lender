@@ -30,6 +30,9 @@ struct unit_test {
         int max, 
         int data
     );
+    static void set_buffer_ptr_array (
+        std::shared_ptr<recycle_memory<int>> recycler
+    );
     static void queue_buffer_from_fill (
         std::shared_ptr<recycle_memory<int>> recycler, 
         int max

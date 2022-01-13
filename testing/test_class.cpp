@@ -156,6 +156,28 @@ void unit_test::multi_change_buffer(
 
 }
 
+void unit_test::set_buffer_ptr_array (
+    std::shared_ptr<recycle_memory<int>> recycler
+) {
+    auto buffer = recycler->fill();
+    auto shape = buffer->shape;
+
+    size_t size = 1;
+    for (auto iter = shape.begin(); iter != shape.end(); iter++) {
+        size *= *iter;
+    }
+
+    // fill each index with its number
+    int i = 0;
+    for (size_t idx = 0; idx < size; idx++, i++) {
+        *(buffer->ptr + idx) = i;
+
+        ASSERT_EQ(buffer[idx], i) << "Expected index " + std::to_string(idx) +
+            " to be " + std::to_string(i) + " but got " + 
+            std::to_string(buffer[idx]);
+    }
+}
+
 // exercise using the operating queue for completed (filled) buffers
 
 void unit_test::queue_buffer_from_fill (

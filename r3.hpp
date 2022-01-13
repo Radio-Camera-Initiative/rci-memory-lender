@@ -29,6 +29,11 @@ struct reuseable_buffer {
         ~reuseable_buffer() {
             recycle.return_memory(ptr);
         }
+
+        T& operator[](unsigned int i) const noexcept {
+            // TODO: what to check here when indexing?
+            return *(ptr + i);
+        }
 };
 
 /* wrapper object for shared_ptrs */
@@ -52,6 +57,15 @@ class buffer_ptr {
 
         reuseable_buffer<T>* operator->() const noexcept {
             return sp.get();
+        }
+
+        T& operator[](unsigned int i) const noexcept {
+            // TODO: what to check here when indexing?
+            return *(sp->ptr + i);
+        }
+
+        T* get() const noexcept {
+            return sp->ptr;
         }
 
         int use_count() {
@@ -120,9 +134,14 @@ class recycle_memory {
 
             // Centralize allocation avoid waiting later on. Assumes all 
             // memory is used
+            size_t size = 1;
+            for (auto iter = shape.begin(); iter != shape.end(); iter++) {
+                size *= *iter;
+            }
+
             for (unsigned int i = 0; i < max; i++) {
                 // use nothrow because we don't do anything with the exception
-                T* temp = new(std::nothrow) T();
+                T* temp = new(std::nothrow) T[size];
                 // TODO: for testing this should be set to a known value
                 if (temp == nullptr) {
                     // we could set a different value as max in the object

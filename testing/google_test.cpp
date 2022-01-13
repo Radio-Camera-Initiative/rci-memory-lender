@@ -41,6 +41,14 @@ TEST(BasicFunctions, MultiChangeBuffers) {
     unit_test::multi_change_buffer(r3, max, 5);
 }
 
+TEST(BasicFunctions, SetBufferArray) {
+    int max = 2;
+    std::vector<size_t> shape = std::vector<size_t>(2, 2);
+    std::shared_ptr<recycle_memory<int>> r3 = 
+        std::make_shared<recycle_memory<int>>(shape, max); 
+    unit_test::set_buffer_ptr_array(r3);
+}
+
 TEST(BasicFunctions, QueueBuffer) {
     int max = 1;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
