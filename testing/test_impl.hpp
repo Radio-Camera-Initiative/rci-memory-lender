@@ -96,9 +96,9 @@ void unit_test::change_one_buffer(
     ASSERT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
         " but got " + std::to_string(*b2);
 
-    *b1 = data + 2;
+    *b1 = data + data;
 
-    EXPECT_EQ(*b1, data+2) << "Expected b1 to be " + std::to_string(data + 2) +
+    EXPECT_EQ(*b1, data+data) << "Expected b1 to be " + std::to_string(data + data) +
         " but got " + std::to_string(*b1);
 
     EXPECT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
@@ -113,7 +113,8 @@ template <typename T>
 void unit_test::multi_change_buffer(
     std::shared_ptr<recycle_memory<T>> recycler,
     int max,
-    T data
+    T data,
+    T diff
 ) {
     // -> check new data cannot be accessed from another buffer
 
@@ -128,20 +129,20 @@ void unit_test::multi_change_buffer(
     ASSERT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
         " but got " + std::to_string(*b2);
 
-    *b1 = data + 2;
+    *b1 = data + diff;
 
-    EXPECT_EQ(*b1, data+2) << "Expected b1 to be " + std::to_string(data + 2) +
+    EXPECT_EQ(*b1, data+diff) << "Expected b1 to be " + std::to_string(data + diff) +
         " but got " + std::to_string(*b1);
 
     EXPECT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
         " but got " + std::to_string(*b2);
 
-    *b2 = data - 5;
+    *b2 = data - diff;
 
-    EXPECT_EQ(*b1, data+2) << "Expected b1 to be " + std::to_string(data + 2) +
+    EXPECT_EQ(*b1, data+diff) << "Expected b1 to be " + std::to_string(data + diff) +
         " but got " + std::to_string(*b1);
 
-    EXPECT_EQ(*b2, data-5) << "Expected b2 to be " + std::to_string(data - 5) +
+    EXPECT_EQ(*b2, data-diff) << "Expected b2 to be " + std::to_string(data - diff) +
         " but got " + std::to_string(*b2);
 
     *b1 = data;
@@ -149,7 +150,7 @@ void unit_test::multi_change_buffer(
     EXPECT_EQ(*b1, data) << "Expected b1 to be " + std::to_string(data) +
         " but got " + std::to_string(*b1);
 
-    EXPECT_EQ(*b2, data-5) << "Expected b2 to be " + std::to_string(data - 5) +
+    EXPECT_EQ(*b2, data-diff) << "Expected b2 to be " + std::to_string(data - diff) +
         " but got " + std::to_string(*b2);
 
     *b2 = data;
@@ -191,12 +192,13 @@ void unit_test::set_buffer_ptr_array (
 template <typename T>
 void unit_test::queue_buffer_from_fill (
     std::shared_ptr<recycle_memory<T>> recycler, 
-    int max
+    int max,
+    T data
 ) {
 // -> check number of free, number of queue, number of shared_ptr refs
     auto b = recycler->fill();
 
-    *b = 5;
+    *b = data;
     ASSERT_EQ(b.use_count(), 1) <<
         "Unexpected reference count. Expected 1 and got " +
         std::to_string(b.use_count());
@@ -241,19 +243,20 @@ void unit_test::thread_read(buffer_ptr<T> b, T data) {
 
 template <typename T>
 void unit_test::change_buffer_threaded(
-    std::shared_ptr<recycle_memory<T>> recycler
+    std::shared_ptr<recycle_memory<T>> recycler,
+    T data
 ) {
     // -> check new data accessed from same & threads' shared_ptr instance
 
     auto b = recycler->fill();
-    *b = 5;
+    *b = data;
     ASSERT_EQ(b.use_count(), 1) <<
         "Unexpected reference count. Expected 1 and got " +
         std::to_string(b.use_count());
-    ASSERT_EQ(*b, 5) << "Unexpected value. Expected " +
-        std::to_string(5) + " but got " + std::to_string(*b);
+    ASSERT_EQ(*b, data) << "Unexpected value. Expected " +
+        std::to_string(data) + " but got " + std::to_string(*b);
 
-    std::thread check(thread_read<T>, b, 5);
+    std::thread check(thread_read<T>, b, data);
 
     check.join();
 
@@ -267,20 +270,21 @@ void unit_test::change_buffer_threaded(
 
 template <typename T>
 void unit_test::multi_change_buffer_threaded(
-    std::shared_ptr<recycle_memory<T>> recycler
+    std::shared_ptr<recycle_memory<T>> recycler,
+    T data[]
 ) {
     // -> check new data accessed from same & threads' shared_ptr instance
 
     auto b = recycler->fill();
-    *b = 5;
+    *b = data[0];
     ASSERT_EQ(b.use_count(), 1) <<
         "Unexpected reference count. Expected 1 and got " +
         std::to_string(b.use_count());
-    ASSERT_EQ(*b, 5) << "Unexpected value. Expected " +
-        std::to_string(5) + " but got " + std::to_string(*b);
+    ASSERT_EQ(*b, data[0]) << "Unexpected value. Expected " +
+        std::to_string(data[0]) + " but got " + std::to_string(*b);
 
-    std::thread check_one(thread_read<T>, b, 5);
-    std::thread check_two(thread_read<T>, b, 5);
+    std::thread check_one(thread_read<T>, b, data[0]);
+    std::thread check_two(thread_read<T>, b, data[0]);
 
     check_one.join();
     check_two.join();
@@ -289,12 +293,12 @@ void unit_test::multi_change_buffer_threaded(
         "Unexpected reference count. Expected 1 and got " +
         std::to_string(b.use_count());
 
-    *b = 9;
-    ASSERT_EQ(*b, 9) << "Unexpected value. Expected " +
-        std::to_string(9) + " but got " + std::to_string(*b);
+    *b = data[1];
+    ASSERT_EQ(*b, data[1]) << "Unexpected value. Expected " +
+        std::to_string(data[1]) + " but got " + std::to_string(*b);
 
-    std::thread check_three(thread_read<T>, b, 9);
-    std::thread check_four(thread_read<T>, b, 9);
+    std::thread check_three(thread_read<T>, b, data[1]);
+    std::thread check_four(thread_read<T>, b, data[1]);
 
     check_three.join();
     check_four.join();
@@ -303,13 +307,13 @@ void unit_test::multi_change_buffer_threaded(
         "Unexpected reference count. Expected 1 and got " +
         std::to_string(b.use_count());
 
-    *b = 12;
-    ASSERT_EQ(*b, 12) << "Unexpected value. Expected " +
-        std::to_string(12) + " but got " + std::to_string(*b);
+    *b = data[2];
+    ASSERT_EQ(*b, data[2]) << "Unexpected value. Expected " +
+        std::to_string(data[2]) + " but got " + std::to_string(*b);
 
-    std::thread check_five(thread_read<T>, b, 12);
-    std::thread check_six(thread_read<T>, b, 12);
-    std::thread check_seven(thread_read<T>, b, 12);
+    std::thread check_five(thread_read<T>, b, data[2]);
+    std::thread check_six(thread_read<T>, b, data[2]);
+    std::thread check_seven(thread_read<T>, b, data[2]);
 
     check_five.join();
     check_six.join();
@@ -343,7 +347,8 @@ template <typename T>
 //NOTE: max must be 1 for this
 void unit_test::wait_take_from_fill_threaded(
     std::shared_ptr<recycle_memory<T>> recycler,
-    int max
+    int max,
+    T data
 ) {
 // -> check that the last one waits
     bool waiting_unsafe = false;
@@ -367,9 +372,9 @@ void unit_test::wait_take_from_fill_threaded(
             cv->wait(lk);
         }
 
-        *b = 5;
-        ASSERT_EQ(*b, 5) << "Unexpected value. Expected " +
-            std::to_string(5) + " but got " + std::to_string(*b);
+        *b = data;
+        ASSERT_EQ(*b, data) << "Unexpected value. Expected " +
+            std::to_string(data) + " but got " + std::to_string(*b);
 
         ASSERT_EQ(b.use_count(), 1) <<
             "Unexpected reference count. Expected 1 and got " +
@@ -414,7 +419,8 @@ void unit_test::thread_wait_queue(
 template <typename T>
 void unit_test::buffer_from_empty_queue_threaded(
     std::shared_ptr<recycle_memory<T>> recycler,
-    int max
+    int max,
+    T data
 ) {
 // -> check that it waits,
 // -> THEN it takes available buffer once queued, check buffer is same
@@ -436,7 +442,7 @@ void unit_test::buffer_from_empty_queue_threaded(
 
     {
         auto b = recycler->fill();
-        *b = 5;
+        *b = data;
         ASSERT_EQ(b.use_count(), 1) <<
             "Unexpected reference count. Expected 1 and got " +
             std::to_string(b.use_count());
@@ -460,7 +466,8 @@ template <typename T>
 //NOTE: max must be >1 for this
 void unit_test::wait_multi_take_from_fill_threaded(
     std::shared_ptr<recycle_memory<T>> recycler,
-    int max
+    int max,
+    T data
 ) {
 // -> check that the last one waits
     bool waiting_unsafe = false;
@@ -480,9 +487,9 @@ void unit_test::wait_multi_take_from_fill_threaded(
             "Unexpected reference count. Expected 1 and got " +
             std::to_string(buffers[i].use_count());
 
-            *buffers[i] = 5; 
-            ASSERT_EQ(*buffers[i], 5) << "Unexpected value. Expected " +
-                std::to_string(5) + " but got " + std::to_string(*buffers[i]);
+            *buffers[i] = data; 
+            ASSERT_EQ(*buffers[i], data) << "Unexpected value. Expected " +
+                std::to_string(data) + " but got " + std::to_string(*buffers[i]);
         }
 
         check = std::thread

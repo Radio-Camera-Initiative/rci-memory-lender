@@ -37,7 +37,8 @@ struct unit_test {
     static void multi_change_buffer(
         std::shared_ptr<recycle_memory<T>> recycler, 
         int max, 
-        T data
+        T data,
+        T diff
     );
     
     template <typename T>
@@ -48,36 +49,42 @@ struct unit_test {
     template <typename T>
     static void queue_buffer_from_fill (
         std::shared_ptr<recycle_memory<T>> recycler, 
-        int max
+        int max,
+        T data
     );
 
     
     template <typename T>
     static void change_buffer_threaded(
-        std::shared_ptr<recycle_memory<T>> recycler
+        std::shared_ptr<recycle_memory<T>> recycler,
+        T data
     );
     
     template <typename T>
     static void multi_change_buffer_threaded(
-        std::shared_ptr<recycle_memory<T>> recycler
+        std::shared_ptr<recycle_memory<T>> recycler,
+        T data[]
     );
     
     template <typename T>
     static void wait_take_from_fill_threaded(
         std::shared_ptr<recycle_memory<T>> recycler, 
-        int max
+        int max,
+        T data
     );
     
     template <typename T>
     static void buffer_from_empty_queue_threaded(
         std::shared_ptr<recycle_memory<T>> recycler, 
-        int max
+        int max,
+        T data
     );
     
     template <typename T>
     static void wait_multi_take_from_fill_threaded(
         std::shared_ptr<recycle_memory<T>> recycler, 
-        int max
+        int max,
+        T data
     );
     
     template <typename T>
