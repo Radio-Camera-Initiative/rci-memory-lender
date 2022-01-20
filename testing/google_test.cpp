@@ -5,7 +5,7 @@
 TEST(BasicFunctions, MakeRecycleMemory) {
     int max = 1;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    unit_test::make_recycle_memory(shape, max);
+    unit_test::make_recycle_memory<int>(shape, max);
 }
 
 TEST(BasicFunctions, TakeWithFill) {
@@ -13,7 +13,7 @@ TEST(BasicFunctions, TakeWithFill) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::take_one_buffer_from_fill(r3, shape, max);
+    unit_test::take_one_buffer_from_fill<int>(r3, shape, max);
 }
 
 TEST(BasicFunctions, CheckBufferDestruction) {
@@ -22,7 +22,7 @@ TEST(BasicFunctions, CheckBufferDestruction) {
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
     // unit_test::take_one_buffer_from_fill(r3, shape, max);
-    unit_test::check_buffer_destruction(r3, max);
+    unit_test::check_buffer_destruction<int>(r3, max);
 }
 
 TEST(BasicFunctions, ChangeBuffers) {
@@ -30,7 +30,7 @@ TEST(BasicFunctions, ChangeBuffers) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::change_one_buffer(r3, max, 5);
+    unit_test::change_one_buffer<int>(r3, max, 5);
 }
 
 TEST(BasicFunctions, MultiChangeBuffers) {
@@ -38,7 +38,7 @@ TEST(BasicFunctions, MultiChangeBuffers) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::multi_change_buffer(r3, max, 5);
+    unit_test::multi_change_buffer<int>(r3, max, 5);
 }
 
 TEST(BasicFunctions, SetBufferArray) {
@@ -46,7 +46,7 @@ TEST(BasicFunctions, SetBufferArray) {
     std::vector<size_t> shape = std::vector<size_t>(2, 2);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::set_buffer_ptr_array(r3);
+    unit_test::set_buffer_ptr_array<int>(r3);
 }
 
 TEST(BasicFunctions, QueueBuffer) {
@@ -54,7 +54,7 @@ TEST(BasicFunctions, QueueBuffer) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::queue_buffer_from_fill(r3, max);
+    unit_test::queue_buffer_from_fill<int>(r3, max);
 }
 
 TEST(Concurrency, ThreadSeesBufferChanges) {
@@ -62,7 +62,7 @@ TEST(Concurrency, ThreadSeesBufferChanges) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::change_buffer_threaded(r3);
+    unit_test::change_buffer_threaded<int>(r3);
 }
 
 TEST(Concurrency, ThreadMultiBufferChange) {
@@ -70,7 +70,7 @@ TEST(Concurrency, ThreadMultiBufferChange) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::multi_change_buffer_threaded(r3);
+    unit_test::multi_change_buffer_threaded<int>(r3);
 }
 
 TEST(Concurrency, ThreadWaitsForFill) {
@@ -78,7 +78,7 @@ TEST(Concurrency, ThreadWaitsForFill) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::wait_take_from_fill_threaded(r3, max);
+    unit_test::wait_take_from_fill_threaded<int>(r3, max);
 }
 
 TEST(Concurrency, ThreadWaitsForQueue) {
@@ -86,7 +86,7 @@ TEST(Concurrency, ThreadWaitsForQueue) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::buffer_from_empty_queue_threaded(r3, max);
+    unit_test::buffer_from_empty_queue_threaded<int>(r3, max);
 }
 
 TEST(Concurrency, ThreadMultiWaitsForFill) {
@@ -94,7 +94,7 @@ TEST(Concurrency, ThreadMultiWaitsForFill) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::wait_multi_take_from_fill_threaded(r3, max);
+    unit_test::wait_multi_take_from_fill_threaded<int>(r3, max);
 }
 
 TEST(Concurrency, ThreadWatchesBuffer) {
@@ -102,5 +102,5 @@ TEST(Concurrency, ThreadWatchesBuffer) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::watcher_check_reference_counts(r3);
+    unit_test::watcher_check_reference_counts<int>(r3);
 }

@@ -19,15 +19,6 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/..
 )
 
-# Make testing library
-add_library(test_class
-  test_class.cpp
-)
-target_link_libraries(
-  test_class
-  gtest_main
-)
-
 # Use GoogleTest
 enable_testing()
 add_executable(
@@ -37,7 +28,7 @@ add_executable(
 target_link_libraries(
   google_test
   gtest_main
-  test_class
+  # test_class
 )
 include(GoogleTest)
 gtest_discover_tests(google_test)
