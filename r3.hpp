@@ -44,6 +44,10 @@ class buffer_ptr {
     private:
         std::shared_ptr<reuseable_buffer<T>> sp;
 
+        int use_count() {
+            return sp.use_count();
+        }
+
     public:
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler) {
@@ -67,12 +71,6 @@ class buffer_ptr {
         T* get() const noexcept {
             return sp->ptr;
         }
-
-        int use_count() {
-            return sp.use_count();
-        }
-    
-    // TODO: array indexing operations
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class

@@ -60,6 +60,26 @@ struct unit_test {
         std::shared_ptr<recycle_memory<int>> recycler
     );
 
+    private:
+        static void thread_read(buffer_ptr<int> b, int data);
+        static void thread_wait_fill(
+            std::shared_ptr<recycle_memory<int>> recycler,
+            std::shared_ptr<std::condition_variable> cv,
+            bool &waiting_unsafe
+        );
+        static void thread_wait_queue(
+            std::shared_ptr<recycle_memory<int>> recycler,
+            std::shared_ptr<std::condition_variable> cv,
+            bool &waiting_unsafe
+        );
+        static void thread_watcher(
+            buffer_ptr<int> p,
+            std::shared_ptr<std::condition_variable> cv,
+            bool &operating_unsafe,
+            int &check_ref
+        );
+
+
 };
 
 #endif

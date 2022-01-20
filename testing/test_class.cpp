@@ -217,7 +217,7 @@ void unit_test::queue_buffer_from_fill (
 
 /* Thread safety/ concurrency tests */
 
-void thread_read(buffer_ptr<int> b, int data) {
+void unit_test::thread_read(buffer_ptr<int> b, int data) {
     EXPECT_GE(b.use_count(), 2) <<
         "Unexpected reference count. Expected at least 2 and got " +
         std::to_string(b.use_count());
@@ -308,7 +308,7 @@ void unit_test::multi_change_buffer_threaded(
         std::to_string(b.use_count());
 }
 
-void thread_wait_fill(
+void unit_test::thread_wait_fill(
     std::shared_ptr<recycle_memory<int>> recycler,
     std::shared_ptr<std::condition_variable> cv,
     bool &waiting_unsafe
@@ -380,7 +380,7 @@ void unit_test::wait_take_from_fill_threaded(
 }
 
 
-void thread_wait_queue(
+void unit_test::thread_wait_queue(
     std::shared_ptr<recycle_memory<int>> recycler,
     std::shared_ptr<std::condition_variable> cv,
     bool &waiting_unsafe
@@ -495,7 +495,7 @@ void unit_test::wait_multi_take_from_fill_threaded(
 // exercise reference counting with the buffer & recycle (use a watcher)
 // to check if the recycler keeps reference count when stored in a queue
 
-void thread_watcher(
+void unit_test::thread_watcher(
     buffer_ptr<int> p,
     std::shared_ptr<std::condition_variable> cv,
     bool &operating_unsafe,
