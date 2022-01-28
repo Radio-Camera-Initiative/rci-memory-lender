@@ -1,6 +1,8 @@
 #include <vector>
 #include <memory>
 #include <thread>
+#include <string>
+#include <complex>
 #include <mutex>
 #include <condition_variable>
 
@@ -8,6 +10,14 @@
 #include "gtest/gtest.h"
 #include "test_class.hpp"
 
+template <typename T>
+std::string t2string(T t) {
+    return std::to_string(t);
+}
+
+template <> std::string t2string<std::complex<float>>(std::complex<float> t) {
+    return "(" + std::to_string(t.real()) + ", " + std::to_string(t.imag()) + "i)";
+}
 
 /* single-threaded tests */
 // FUTURE: make sure all tests work for arrays as well
@@ -91,18 +101,18 @@ void unit_test::change_one_buffer(
     *b1 = data;
     *b2 = data;
 
-    ASSERT_EQ(*b1, data) << "Expected b1 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b1);
-    ASSERT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b2);
+    ASSERT_EQ(*b1, data) << "Expected b1 to be " + t2string(data) +
+        " but got " + t2string(*b1);
+    ASSERT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
+        " but got " + t2string(*b2);
 
     *b1 = data + data;
 
-    EXPECT_EQ(*b1, data+data) << "Expected b1 to be " + std::to_string(data + data) +
-        " but got " + std::to_string(*b1);
+    EXPECT_EQ(*b1, data+data) << "Expected b1 to be " + t2string(data + data) +
+        " but got " + t2string(*b1);
 
-    EXPECT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b2);
+    EXPECT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
+        " but got " + t2string(*b2);
 
 }
 
@@ -124,41 +134,41 @@ void unit_test::multi_change_buffer(
     *b1 = data;
     *b2 = data;
 
-    ASSERT_EQ(*b1, data) << "Expected b1 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b1);
-    ASSERT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b2);
+    ASSERT_EQ(*b1, data) << "Expected b1 to be " + t2string(data) +
+        " but got " + t2string(*b1);
+    ASSERT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
+        " but got " + t2string(*b2);
 
     *b1 = data + diff;
 
-    EXPECT_EQ(*b1, data+diff) << "Expected b1 to be " + std::to_string(data + diff) +
-        " but got " + std::to_string(*b1);
+    EXPECT_EQ(*b1, data+diff) << "Expected b1 to be " + t2string(data + diff) +
+        " but got " + t2string(*b1);
 
-    EXPECT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b2);
+    EXPECT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
+        " but got " + t2string(*b2);
 
     *b2 = data - diff;
 
-    EXPECT_EQ(*b1, data+diff) << "Expected b1 to be " + std::to_string(data + diff) +
-        " but got " + std::to_string(*b1);
+    EXPECT_EQ(*b1, data+diff) << "Expected b1 to be " + t2string(data + diff) +
+        " but got " + t2string(*b1);
 
-    EXPECT_EQ(*b2, data-diff) << "Expected b2 to be " + std::to_string(data - diff) +
-        " but got " + std::to_string(*b2);
+    EXPECT_EQ(*b2, data-diff) << "Expected b2 to be " + t2string(data - diff) +
+        " but got " + t2string(*b2);
 
     *b1 = data;
 
-    EXPECT_EQ(*b1, data) << "Expected b1 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b1);
+    EXPECT_EQ(*b1, data) << "Expected b1 to be " + t2string(data) +
+        " but got " + t2string(*b1);
 
-    EXPECT_EQ(*b2, data-diff) << "Expected b2 to be " + std::to_string(data - diff) +
-        " but got " + std::to_string(*b2);
+    EXPECT_EQ(*b2, data-diff) << "Expected b2 to be " + t2string(data - diff) +
+        " but got " + t2string(*b2);
 
     *b2 = data;
 
-    ASSERT_EQ(*b1, data) << "Expected b1 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b1);
-    ASSERT_EQ(*b2, data) << "Expected b2 to be " + std::to_string(data) +
-        " but got " + std::to_string(*b2);
+    ASSERT_EQ(*b1, data) << "Expected b1 to be " + t2string(data) +
+        " but got " + t2string(*b1);
+    ASSERT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
+        " but got " + t2string(*b2);
 
 }
 
@@ -178,12 +188,13 @@ void unit_test::set_buffer_ptr_array (
 
     // fill each index with its number
     T i = 0;
-    for (size_t idx = 0; idx < size; idx++, i++) {
+    T one = 1;
+    for (size_t idx = 0; idx < size; idx++, i+one) {
         *(buffer->ptr + idx) = i;
 
         ASSERT_EQ(buffer[idx], i) << "Expected index " + std::to_string(idx) +
-            " to be " + std::to_string(i) + " but got " + 
-            std::to_string(buffer[idx]);
+            " to be " + t2string(i) + " but got " + 
+            t2string(buffer[idx]);
     }
 }
 
@@ -235,7 +246,7 @@ void unit_test::thread_read(buffer_ptr<T> b, T data) {
         std::to_string(b.use_count());
 
     EXPECT_EQ(*b, data) << "Unexpected value. Expected " +
-        std::to_string(data) + " but got " + std::to_string(*b);
+        t2string(data) + " but got " + t2string(*b);
 
 }
 
@@ -254,7 +265,7 @@ void unit_test::change_buffer_threaded(
         "Unexpected reference count. Expected 1 and got " +
         std::to_string(b.use_count());
     ASSERT_EQ(*b, data) << "Unexpected value. Expected " +
-        std::to_string(data) + " but got " + std::to_string(*b);
+        t2string(data) + " but got " + t2string(*b);
 
     std::thread check(thread_read<T>, b, data);
 
@@ -281,7 +292,7 @@ void unit_test::multi_change_buffer_threaded(
         "Unexpected reference count. Expected 1 and got " +
         std::to_string(b.use_count());
     ASSERT_EQ(*b, data[0]) << "Unexpected value. Expected " +
-        std::to_string(data[0]) + " but got " + std::to_string(*b);
+        t2string(data[0]) + " but got " + t2string(*b);
 
     std::thread check_one(thread_read<T>, b, data[0]);
     std::thread check_two(thread_read<T>, b, data[0]);
@@ -295,7 +306,7 @@ void unit_test::multi_change_buffer_threaded(
 
     *b = data[1];
     ASSERT_EQ(*b, data[1]) << "Unexpected value. Expected " +
-        std::to_string(data[1]) + " but got " + std::to_string(*b);
+        t2string(data[1]) + " but got " + t2string(*b);
 
     std::thread check_three(thread_read<T>, b, data[1]);
     std::thread check_four(thread_read<T>, b, data[1]);
@@ -309,7 +320,7 @@ void unit_test::multi_change_buffer_threaded(
 
     *b = data[2];
     ASSERT_EQ(*b, data[2]) << "Unexpected value. Expected " +
-        std::to_string(data[2]) + " but got " + std::to_string(*b);
+        t2string(data[2]) + " but got " + t2string(*b);
 
     std::thread check_five(thread_read<T>, b, data[2]);
     std::thread check_six(thread_read<T>, b, data[2]);
@@ -374,7 +385,7 @@ void unit_test::wait_take_from_fill_threaded(
 
         *b = data;
         ASSERT_EQ(*b, data) << "Unexpected value. Expected " +
-            std::to_string(data) + " but got " + std::to_string(*b);
+            t2string(data) + " but got " + t2string(*b);
 
         ASSERT_EQ(b.use_count(), 1) <<
             "Unexpected reference count. Expected 1 and got " +
@@ -489,7 +500,7 @@ void unit_test::wait_multi_take_from_fill_threaded(
 
             *buffers[i] = data; 
             ASSERT_EQ(*buffers[i], data) << "Unexpected value. Expected " +
-                std::to_string(data) + " but got " + std::to_string(*buffers[i]);
+                t2string(data) + " but got " + t2string(*buffers[i]);
         }
 
         check = std::thread
