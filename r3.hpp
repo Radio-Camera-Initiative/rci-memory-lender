@@ -6,7 +6,11 @@
 #include <memory>
 #include <new>
 #include <mutex>
+#include <cstring>
+#include <cassert>
 #include <condition_variable>
+
+// #define NDEBUG 
 
 template <typename T>
 class recycle_memory;
@@ -67,7 +71,7 @@ class buffer_ptr {
 
         T& operator[](int i) const noexcept {
             assert(i >= 0);
-            assert(i < size);
+            assert(static_cast<size_t>(i) < size);
             return *(sp->ptr + i);
         }
 
@@ -100,6 +104,9 @@ class recycle_memory {
 
         void return_memory(T* p) {
             std::unique_lock<std::mutex> guard(free_mutex);
+            #ifndef NDEBUG
+            memset(p, 0xf0, sizeof(T)*size);
+            #endif
             free_q.push(p);
             guard.unlock();
             free_variable.notify_one();
@@ -150,6 +157,10 @@ class recycle_memory {
                     // we could set a different value as max in the object
                     break;
                 }
+
+                #ifndef NDEBUG
+                memset(temp, 0xf0, sizeof(T)*size);
+                #endif
                 free_q.push(temp);
             }
         }
@@ -184,6 +195,14 @@ class recycle_memory {
             // take from free list
             T* ptr = free_q.front();
             free_q.pop();
+
+            #ifndef NDEBUG
+            // check there was no changes after free
+            T* f = new T();
+            memset(f, 0xf0, sizeof(T));
+            assert(memcmp(ptr, f, sizeof(T)) == 0);
+            memset(ptr, 0, sizeof(T)*size);
+            #endif
 
             // make reuseable_buffer for the buffer
             auto sp = buffer_ptr<T>(ptr, *this);
