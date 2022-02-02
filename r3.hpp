@@ -29,6 +29,11 @@ struct reuseable_buffer {
         ~reuseable_buffer() {
             recycle.return_memory(ptr);
         }
+
+        T& operator[](unsigned int i) const noexcept {
+            // TODO: what to check here when indexing?
+            return *(ptr + i);
+        }
 };
 
 /* wrapper object for shared_ptrs */
@@ -38,11 +43,17 @@ class buffer_ptr {
 
     private:
         std::shared_ptr<reuseable_buffer<T>> sp;
+        size_t size;
+
+        int use_count() {
+            return sp.use_count();
+        }
 
     public:
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler) {
             sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
+            size = recycler.size;
         }
 
         // const noexcept are here because shared_ptr had them. tbd on removing
@@ -54,11 +65,15 @@ class buffer_ptr {
             return sp.get();
         }
 
-        int use_count() {
-            return sp.use_count();
+        T& operator[](int i) const noexcept {
+            assert(i >= 0);
+            assert(i < size);
+            return *(sp->ptr + i);
         }
-    
-    // TODO: array indexing operations
+
+        T* get() const noexcept {
+            return sp->ptr;
+        }
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -69,11 +84,13 @@ class buffer_ptr {
 template <typename T>
 class recycle_memory {
     friend struct reuseable_buffer<T>;
+    friend class buffer_ptr<T>;
     friend class unit_test;
 
     // has a vector of recycle_memory struct pointers.
     private:
         const std::vector<size_t> shape;
+        size_t size;
         std::queue<buffer_ptr<T>> change_q;
         std::mutex change_mutex;
         std::condition_variable change_variable;
@@ -120,9 +137,14 @@ class recycle_memory {
 
             // Centralize allocation avoid waiting later on. Assumes all 
             // memory is used
+            size = 1;
+            for (auto iter = shape.begin(); iter != shape.end(); iter++) {
+                size *= *iter;
+            }
+
             for (unsigned int i = 0; i < max; i++) {
                 // use nothrow because we don't do anything with the exception
-                T* temp = new(std::nothrow) T();
+                T* temp = new(std::nothrow) T[size];
                 // TODO: for testing this should be set to a known value
                 if (temp == nullptr) {
                     // we could set a different value as max in the object
