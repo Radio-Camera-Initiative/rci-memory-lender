@@ -43,6 +43,7 @@ class buffer_ptr {
 
     private:
         std::shared_ptr<reuseable_buffer<T>> sp;
+        size_t size;
 
         int use_count() {
             return sp.use_count();
@@ -52,6 +53,7 @@ class buffer_ptr {
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler) {
             sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
+            size = recycler.size;
         }
 
         // const noexcept are here because shared_ptr had them. tbd on removing
@@ -63,8 +65,9 @@ class buffer_ptr {
             return sp.get();
         }
 
-        T& operator[](unsigned int i) const noexcept {
-            // TODO: what to check here when indexing?
+        T& operator[](int i) const noexcept {
+            assert(i >= 0);
+            assert(i < size);
             return *(sp->ptr + i);
         }
 
@@ -81,11 +84,13 @@ class buffer_ptr {
 template <typename T>
 class recycle_memory {
     friend struct reuseable_buffer<T>;
+    friend class buffer_ptr<T>;
     friend class unit_test;
 
     // has a vector of recycle_memory struct pointers.
     private:
         const std::vector<size_t> shape;
+        size_t size;
         std::queue<buffer_ptr<T>> change_q;
         std::mutex change_mutex;
         std::condition_variable change_variable;
@@ -132,7 +137,7 @@ class recycle_memory {
 
             // Centralize allocation avoid waiting later on. Assumes all 
             // memory is used
-            size_t size = 1;
+            size = 1;
             for (auto iter = shape.begin(); iter != shape.end(); iter++) {
                 size *= *iter;
             }

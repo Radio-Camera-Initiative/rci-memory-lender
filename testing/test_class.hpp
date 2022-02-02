@@ -67,7 +67,7 @@ struct unit_test {
     );
     
     template <typename T>
-    static void wait_take_from_fill_threaded(
+    static void wait_on_fill_threaded(
         std::shared_ptr<recycle_memory<T>> recycler, 
         int max,
         T data

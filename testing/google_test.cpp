@@ -234,7 +234,7 @@ TEST(Concurrency, ThreadIntWaitsForFill) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> r3 = 
         std::make_shared<recycle_memory<int>>(shape, max); 
-    unit_test::wait_take_from_fill_threaded<int>(r3, max, 5);
+    unit_test::wait_on_fill_threaded<int>(r3, max, 5);
 }
 
 TEST(Concurrency, ThreadFloatWaitsForFill) {
@@ -242,7 +242,7 @@ TEST(Concurrency, ThreadFloatWaitsForFill) {
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<float>> r3 = 
         std::make_shared<recycle_memory<float>>(shape, max); 
-    unit_test::wait_take_from_fill_threaded<float>(r3, max, 5.0);
+    unit_test::wait_on_fill_threaded<float>(r3, max, 5.0);
 }
 
 TEST(Concurrency, ThreadFComplexWaitsForFill) {
@@ -251,7 +251,7 @@ TEST(Concurrency, ThreadFComplexWaitsForFill) {
     std::shared_ptr<recycle_memory<fcomplex>> r3 = 
         std::make_shared<recycle_memory<fcomplex>>(shape, max); 
     fcomplex c = 5.f - 5if;
-    unit_test::wait_take_from_fill_threaded<fcomplex>(r3, max, c);
+    unit_test::wait_on_fill_threaded<fcomplex>(r3, max, c);
 }
 
 TEST(Concurrency, ThreadIntWaitsForQueue) {

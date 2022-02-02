@@ -190,7 +190,7 @@ void unit_test::set_buffer_ptr_array (
     T i = 0;
     T one = 1;
     for (size_t idx = 0; idx < size; idx++, i+one) {
-        *(buffer->ptr + idx) = i;
+        buffer[idx] = i;
 
         ASSERT_EQ(buffer[idx], i) << "Expected index " + std::to_string(idx) +
             " to be " + t2string(i) + " but got " + 
@@ -297,6 +297,10 @@ void unit_test::multi_change_buffer_threaded(
     std::thread check_one(thread_read<T>, b, data[0]);
     std::thread check_two(thread_read<T>, b, data[0]);
 
+    EXPECT_GE(b.use_count(), 2) <<
+        "Unexpected reference count. Expected at least 2 and got " +
+        std::to_string(b.use_count());
+
     check_one.join();
     check_two.join();
 
@@ -310,6 +314,10 @@ void unit_test::multi_change_buffer_threaded(
 
     std::thread check_three(thread_read<T>, b, data[1]);
     std::thread check_four(thread_read<T>, b, data[1]);
+
+    EXPECT_GE(b.use_count(), 2) <<
+        "Unexpected reference count. Expected at least 2 and got " +
+        std::to_string(b.use_count());
 
     check_three.join();
     check_four.join();
@@ -325,6 +333,10 @@ void unit_test::multi_change_buffer_threaded(
     std::thread check_five(thread_read<T>, b, data[2]);
     std::thread check_six(thread_read<T>, b, data[2]);
     std::thread check_seven(thread_read<T>, b, data[2]);
+
+    EXPECT_GE(b.use_count(), 2) <<
+        "Unexpected reference count. Expected at least 2 and got " +
+        std::to_string(b.use_count());
 
     check_five.join();
     check_six.join();
@@ -356,7 +368,7 @@ void unit_test::thread_wait_fill(
 
 template <typename T>
 //NOTE: max must be 1 for this
-void unit_test::wait_take_from_fill_threaded(
+void unit_test::wait_on_fill_threaded(
     std::shared_ptr<recycle_memory<T>> recycler,
     int max,
     T data
