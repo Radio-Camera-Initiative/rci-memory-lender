@@ -233,6 +233,26 @@ void unit_test::queue_buffer_from_fill (
 
 }
 
+//exercise decrement operate queue (max>1 required)
+
+template <typename T>
+void unit_test::dec_operate_queue(
+    std::shared_ptr<recycle_memory<T>> recycler
+) {
+    auto b1 = recycler->fill();
+    auto b2 = recycler->fill();
+
+    recycler->queue(b1);
+    EXPECT_EQ(recycler->private_queue_size(), 1);
+    recycler->queue(b2);
+    EXPECT_EQ(recycler->private_queue_size(), 2);
+
+    auto pop1 = recycler->operate();
+    EXPECT_EQ(recycler->private_queue_size(), 1);
+    auto pop2 = recycler->operate();
+    EXPECT_EQ(recycler->private_queue_size(), 0);
+}
+
 // FUTURE: array access
 
 // FUTURE: if user can give own shared_ptrs, check queue has max length

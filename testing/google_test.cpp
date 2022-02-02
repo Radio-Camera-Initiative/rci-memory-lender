@@ -58,6 +58,14 @@ TEST(BasicFunctions, IntQueueBuffer) {
     unit_test::queue_buffer_from_fill<int>(r3, max, 5);
 }
 
+TEST(BasicFunctions, IntDecOperate) {
+    int max = 2;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<recycle_memory<int>> r3 = 
+        std::make_shared<recycle_memory<int>>(shape, max);
+    unit_test::dec_operate_queue<int>(r3);
+}
+
 TEST(BasicFunctions, FloatMakeRecycleMemory) {
     int max = 1;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
@@ -111,6 +119,14 @@ TEST(BasicFunctions, FloatQueueBuffer) {
     std::shared_ptr<recycle_memory<float>> r3 = 
         std::make_shared<recycle_memory<float>>(shape, max); 
     unit_test::queue_buffer_from_fill<float>(r3, max, 5.0);
+}
+
+TEST(BasicFunctions, FloatDecOperate) {
+    int max = 2;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<recycle_memory<float>> r3 = 
+        std::make_shared<recycle_memory<float>>(shape, max);
+    unit_test::dec_operate_queue<float>(r3);
 }
 
 typedef std::complex<float> fcomplex;
@@ -176,6 +192,13 @@ TEST(BasicFunctions, FComplexQueueBuffer) {
     unit_test::queue_buffer_from_fill<fcomplex>(r3, max, c);
 }
 
+TEST(BasicFunctions, FComplexDecOperate) {
+    int max = 2;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<recycle_memory<fcomplex>> r3 = 
+        std::make_shared<recycle_memory<fcomplex>>(shape, max);
+    unit_test::dec_operate_queue<fcomplex>(r3);
+}
 
 TEST(Concurrency, ThreadIntSeesBufferChanges) {
     int max = 1;

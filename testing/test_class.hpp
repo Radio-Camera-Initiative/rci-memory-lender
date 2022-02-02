@@ -53,6 +53,11 @@ struct unit_test {
         T data
     );
 
+    template <typename T>
+    static void dec_operate_queue(
+        std::shared_ptr<recycle_memory<T>> recycler
+    );
+
     
     template <typename T>
     static void change_buffer_threaded(
