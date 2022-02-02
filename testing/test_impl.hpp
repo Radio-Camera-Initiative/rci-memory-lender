@@ -85,6 +85,26 @@ void unit_test::check_buffer_destruction(
 
 }
 
+// exercise decrementing buffer reference count
+
+template <typename T>
+void unit_test::dec_buffer_ref_count(
+    std::shared_ptr<recycle_memory<T>> recycler
+) {
+    buffer_ptr<T> p = recycler->fill();
+    EXPECT_EQ(p.use_count(), 1) << "Too many charge pointer owners.";
+
+    recycler->queue(p);
+    EXPECT_EQ(p.use_count(), 2) << "Unexpected reference count";
+
+    {
+        buffer_ptr<T> b = recycler->operate();
+        EXPECT_EQ(p.use_count(), 2) << "Unexpected reference count";
+    }
+
+    EXPECT_EQ(p.use_count(), 1) << "Too many charge pointer owners.";
+}
+
 // exercise buffers setting data separately from each other
 
 template <typename T>

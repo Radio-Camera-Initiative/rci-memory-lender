@@ -26,6 +26,14 @@ TEST(BasicFunctions, IntCheckBufferDestruction) {
     unit_test::check_buffer_destruction<int>(r3, max);
 }
 
+TEST(BasicFunctions, IntDecRefCount) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<recycle_memory<int>> r3 = 
+        std::make_shared<recycle_memory<int>>(shape, max); 
+    unit_test::dec_buffer_ref_count<int>(r3);
+}
+
 TEST(BasicFunctions, IntChangeBuffers) {
     int max = 2;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
@@ -87,6 +95,14 @@ TEST(BasicFunctions, FloatCheckBufferDestruction) {
         std::make_shared<recycle_memory<float>>(shape, max); 
     // unit_test::take_one_buffer_from_fill(r3, shape, max);
     unit_test::check_buffer_destruction<float>(r3, max);
+}
+
+TEST(BasicFunctions, FloatDecRefCount) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<recycle_memory<float>> r3 = 
+        std::make_shared<recycle_memory<float>>(shape, max); 
+    unit_test::dec_buffer_ref_count<float>(r3);
 }
 
 TEST(BasicFunctions, FloatChangeBuffers) {
@@ -153,6 +169,14 @@ TEST(BasicFunctions, FComplexCheckBufferDestruction) {
         std::make_shared<recycle_memory<fcomplex>>(shape, max); 
     // unit_test::take_one_buffer_from_fill(r3, shape, max);
     unit_test::check_buffer_destruction<fcomplex>(r3, max);
+}
+
+TEST(BasicFunctions, FComplexDecRefCount) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<recycle_memory<fcomplex>> r3 = 
+        std::make_shared<recycle_memory<fcomplex>>(shape, max); 
+    unit_test::dec_buffer_ref_count<fcomplex>(r3);
 }
 
 TEST(BasicFunctions, FComplexChangeBuffers) {

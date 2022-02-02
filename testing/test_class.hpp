@@ -25,6 +25,11 @@ struct unit_test {
         std::shared_ptr<recycle_memory<T>> recycler, 
         int max
     );
+
+    template <typename T>
+    static void dec_buffer_ref_count(
+        std::shared_ptr<recycle_memory<T>> recycler
+    );
     
     template <typename T>
     static void change_one_buffer(
