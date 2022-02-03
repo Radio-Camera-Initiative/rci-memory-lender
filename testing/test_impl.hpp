@@ -10,6 +10,9 @@
 #include "gtest/gtest.h"
 #include "test_class.hpp"
 
+#define UnexpectedEq(check, value, name) EXPECT_EQ(check, value) \
+    << "Unexpected " name "."
+
 template <typename T>
 std::string t2string(T t) {
     return std::to_string(t);
@@ -30,8 +33,7 @@ void unit_test::make_recycle_memory(std::vector<size_t> shape, int max) {
 // -> check correct number of free
     recycle_memory<T> r(shape, max);
 
-    EXPECT_EQ(r.private_free_size(), max) << "Free list did not make "
-        + std::to_string(max) + " buffers.";
+    UnexpectedEq(r.private_free_size(), max, "free list size");
 }
 
 // exercise reference counts when taking buffer from fill queue
@@ -46,14 +48,12 @@ void unit_test::take_one_buffer_from_fill(
     buffer_ptr<T> p = recycler->fill();
 
     for (int i = 0; i < shape.size(); i++) {
-        EXPECT_EQ(p->shape[i], shape[i]) << "Shape is incorrect";
+        UnexpectedEq(p->shape[i], shape[i], "shape");
     }
 
-    EXPECT_EQ(recycler->private_free_size(),  max - 1) << "Expected " +
-        std::to_string(max - 1) + " free buffers. Have " +
-        std::to_string(recycler->private_free_size());
+    UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
 
-    EXPECT_EQ(p.use_count(), 1) << "Too many shared_pointer owners.";
+    UnexpectedEq(p.use_count(), 1, "reference count");
 
 }
 
@@ -69,19 +69,15 @@ void unit_test::check_buffer_destruction(
     {
         buffer_ptr<T> p = recycler->fill();
 
-        EXPECT_EQ(recycler->private_free_size(),  max - 1) << "Expected " +
-            std::to_string(max - 1) + " free buffers. Have " +
-            std::to_string(recycler->private_free_size());
+        UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
 
-        EXPECT_EQ(p.use_count(), 1) << "Too many shared_pointer owners.";
+        UnexpectedEq(p.use_count(), 1, "reference count");
     }
 
     // here we assume that destruction of the buffer was done automatically
     // when out of scope
 
-    EXPECT_EQ(recycler->private_free_size(), max) << "Expected " +
-        std::to_string(max - 1) + " free buffers. Have " +
-        std::to_string(recycler->private_free_size());
+    UnexpectedEq(recycler->private_free_size(),  max, "number of free buffers");
 
 }
 
@@ -92,17 +88,17 @@ void unit_test::dec_buffer_ref_count(
     std::shared_ptr<recycle_memory<T>> recycler
 ) {
     buffer_ptr<T> p = recycler->fill();
-    EXPECT_EQ(p.use_count(), 1) << "Too many charge pointer owners.";
+    UnexpectedEq(p.use_count(), 1, "reference count");
 
     recycler->queue(p);
-    EXPECT_EQ(p.use_count(), 2) << "Unexpected reference count";
+    UnexpectedEq(p.use_count(), 2, "reference count");
 
     {
         buffer_ptr<T> b = recycler->operate();
-        EXPECT_EQ(p.use_count(), 2) << "Unexpected reference count";
+        UnexpectedEq(p.use_count(), 2, "reference count");
     }
 
-    EXPECT_EQ(p.use_count(), 1) << "Too many charge pointer owners.";
+    UnexpectedEq(p.use_count(), 1, "reference count");
 }
 
 // exercise buffers setting data separately from each other
@@ -121,18 +117,13 @@ void unit_test::change_one_buffer(
     *b1 = data;
     *b2 = data;
 
-    ASSERT_EQ(*b1, data) << "Expected b1 to be " + t2string(data) +
-        " but got " + t2string(*b1);
-    ASSERT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
-        " but got " + t2string(*b2);
+    UnexpectedEq(*b1, data, "buffer value");
+    UnexpectedEq(*b2, data, "buffer value");
 
     *b1 = data + data;
 
-    EXPECT_EQ(*b1, data+data) << "Expected b1 to be " + t2string(data + data) +
-        " but got " + t2string(*b1);
-
-    EXPECT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
-        " but got " + t2string(*b2);
+    UnexpectedEq(*b1, data+data, "buffer_value");
+    UnexpectedEq(*b2, data, "buffer value");
 
 }
 
@@ -154,41 +145,28 @@ void unit_test::multi_change_buffer(
     *b1 = data;
     *b2 = data;
 
-    ASSERT_EQ(*b1, data) << "Expected b1 to be " + t2string(data) +
-        " but got " + t2string(*b1);
-    ASSERT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
-        " but got " + t2string(*b2);
+    UnexpectedEq(*b1, data, "buffer value");
+    UnexpectedEq(*b2, data, "buffer value");
 
     *b1 = data + diff;
 
-    EXPECT_EQ(*b1, data+diff) << "Expected b1 to be " + t2string(data + diff) +
-        " but got " + t2string(*b1);
-
-    EXPECT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
-        " but got " + t2string(*b2);
+    UnexpectedEq(*b1, data+diff, "buffer value");
+    UnexpectedEq(*b2, data, "buffer value");
 
     *b2 = data - diff;
-
-    EXPECT_EQ(*b1, data+diff) << "Expected b1 to be " + t2string(data + diff) +
-        " but got " + t2string(*b1);
-
-    EXPECT_EQ(*b2, data-diff) << "Expected b2 to be " + t2string(data - diff) +
-        " but got " + t2string(*b2);
-
-    *b1 = data;
-
-    EXPECT_EQ(*b1, data) << "Expected b1 to be " + t2string(data) +
-        " but got " + t2string(*b1);
-
-    EXPECT_EQ(*b2, data-diff) << "Expected b2 to be " + t2string(data - diff) +
-        " but got " + t2string(*b2);
+    
+    UnexpectedEq(*b1, data+diff, "buffer value");
+    UnexpectedEq(*b2, data-diff, "buffer value");
 
     *b2 = data;
 
-    ASSERT_EQ(*b1, data) << "Expected b1 to be " + t2string(data) +
-        " but got " + t2string(*b1);
-    ASSERT_EQ(*b2, data) << "Expected b2 to be " + t2string(data) +
-        " but got " + t2string(*b2);
+    UnexpectedEq(*b1, data+diff, "buffer value");
+    UnexpectedEq(*b2, data, "buffer value");
+    
+    *b1 = data;
+
+    UnexpectedEq(*b1, data, "buffer value");
+    UnexpectedEq(*b2, data, "buffer value");
 
 }
 
@@ -211,10 +189,7 @@ void unit_test::set_buffer_ptr_array (
     T one = 1;
     for (size_t idx = 0; idx < size; idx++, i+one) {
         buffer[idx] = i;
-
-        ASSERT_EQ(buffer[idx], i) << "Expected index " + std::to_string(idx) +
-            " to be " + t2string(i) + " but got " + 
-            t2string(buffer[idx]);
+        UnexpectedEq(buffer[idx], i, "array value");
     }
 }
 
@@ -230,25 +205,14 @@ void unit_test::queue_buffer_from_fill (
     auto b = recycler->fill();
 
     *b = data;
-    ASSERT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
+    UnexpectedEq(b.use_count(), 1, "reference count");
 
     recycler->queue(b);
 
-    EXPECT_EQ(recycler->private_free_size(), max - 1) << "Expected " +
-        std::to_string(max - 1) + " free buffers. Have " +
-        std::to_string(recycler->private_free_size());
+    UnexpectedEq(recycler->private_free_size(), max - 1, "number of free buffers");
+    UnexpectedEq(recycler->private_queue_size(), 1, "queue size");
 
-
-    EXPECT_EQ(recycler->private_queue_size(), 1) <<
-        "Expected 1 queued buffer. Have " +
-        std::to_string(recycler->private_queue_size());
-
-
-    EXPECT_EQ(b.use_count(), 2) <<
-        "Unexpected reference count. Expected 2 and got " +
-        std::to_string(b.use_count());
+    UnexpectedEq(b.use_count(), 2, "reference count");
     // one count for this function, one count for the queue
 
 }
@@ -261,16 +225,17 @@ void unit_test::dec_operate_queue(
 ) {
     auto b1 = recycler->fill();
     auto b2 = recycler->fill();
+    UnexpectedEq(recycler->private_queue_size(), 0, "queue size");
 
     recycler->queue(b1);
-    EXPECT_EQ(recycler->private_queue_size(), 1);
+    UnexpectedEq(recycler->private_queue_size(), 1, "queue size");
     recycler->queue(b2);
-    EXPECT_EQ(recycler->private_queue_size(), 2);
+    UnexpectedEq(recycler->private_queue_size(), 2, "queue size");
 
     auto pop1 = recycler->operate();
-    EXPECT_EQ(recycler->private_queue_size(), 1);
+    UnexpectedEq(recycler->private_queue_size(), 1, "queue size");
     auto pop2 = recycler->operate();
-    EXPECT_EQ(recycler->private_queue_size(), 0);
+    UnexpectedEq(recycler->private_queue_size(), 0, "queue size");
 }
 
 // FUTURE: array access
@@ -285,8 +250,7 @@ void unit_test::thread_read(buffer_ptr<T> b, T data) {
         "Unexpected reference count. Expected at least 2 and got " +
         std::to_string(b.use_count());
 
-    EXPECT_EQ(*b, data) << "Unexpected value. Expected " +
-        t2string(data) + " but got " + t2string(*b);
+    UnexpectedEq(*b, data, "value");
 
 }
 
@@ -301,19 +265,14 @@ void unit_test::change_buffer_threaded(
 
     auto b = recycler->fill();
     *b = data;
-    ASSERT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
-    ASSERT_EQ(*b, data) << "Unexpected value. Expected " +
-        t2string(data) + " but got " + t2string(*b);
+    UnexpectedEq(b.use_count(), 1, "reference count");
+    UnexpectedEq(*b, data, "value");
 
     std::thread check(thread_read<T>, b, data);
 
     check.join();
 
-    EXPECT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
+    UnexpectedEq(b.use_count(), 1, "reference count");
 }
 
 //  change buffer multiple times and check correct data from multiple threads
@@ -328,11 +287,8 @@ void unit_test::multi_change_buffer_threaded(
 
     auto b = recycler->fill();
     *b = data[0];
-    ASSERT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
-    ASSERT_EQ(*b, data[0]) << "Unexpected value. Expected " +
-        t2string(data[0]) + " but got " + t2string(*b);
+    UnexpectedEq(b.use_count(), 1, "reference count");
+    UnexpectedEq(*b, data[0], "value");
 
     std::thread check_one(thread_read<T>, b, data[0]);
     std::thread check_two(thread_read<T>, b, data[0]);
@@ -344,13 +300,10 @@ void unit_test::multi_change_buffer_threaded(
     check_one.join();
     check_two.join();
 
-    EXPECT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
+    UnexpectedEq(b.use_count(), 1, "reference count");
 
     *b = data[1];
-    ASSERT_EQ(*b, data[1]) << "Unexpected value. Expected " +
-        t2string(data[1]) + " but got " + t2string(*b);
+    UnexpectedEq(*b, data[1], "value");
 
     std::thread check_three(thread_read<T>, b, data[1]);
     std::thread check_four(thread_read<T>, b, data[1]);
@@ -362,14 +315,11 @@ void unit_test::multi_change_buffer_threaded(
     check_three.join();
     check_four.join();
 
-    EXPECT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
+    UnexpectedEq(b.use_count(), 1, "reference count");
 
     *b = data[2];
-    ASSERT_EQ(*b, data[2]) << "Unexpected value. Expected " +
-        t2string(data[2]) + " but got " + t2string(*b);
-
+    UnexpectedEq(*b, data[2], "value");
+    
     std::thread check_five(thread_read<T>, b, data[2]);
     std::thread check_six(thread_read<T>, b, data[2]);
     std::thread check_seven(thread_read<T>, b, data[2]);
@@ -382,9 +332,7 @@ void unit_test::multi_change_buffer_threaded(
     check_six.join();
     check_seven.join();
 
-    EXPECT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
+    UnexpectedEq(b.use_count(), 1, "reference count");
 }
 
 template <typename T>
@@ -397,9 +345,7 @@ void unit_test::thread_wait_fill(
     cv->notify_one();
     auto b = recycler->fill();
 
-    EXPECT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
+    UnexpectedEq(b.use_count(), 1, "reference count");
 
     waiting_unsafe = false;
 }
@@ -423,9 +369,7 @@ void unit_test::wait_on_fill_threaded(
             std::make_shared<std::condition_variable>();
         std::mutex m;
 
-        ASSERT_EQ(b.use_count(), 1) <<
-            "Unexpected reference count. Expected 1 and got " +
-            std::to_string(b.use_count());
+        UnexpectedEq(b.use_count(), 1, "reference count");
 
         check = std::thread
             (thread_wait_fill<T>, recycler, cv, std::ref(waiting_unsafe));
@@ -436,19 +380,14 @@ void unit_test::wait_on_fill_threaded(
         }
 
         *b = data;
-        ASSERT_EQ(*b, data) << "Unexpected value. Expected " +
-            t2string(data) + " but got " + t2string(*b);
+        UnexpectedEq(*b, data, "value");
 
-        ASSERT_EQ(b.use_count(), 1) <<
-            "Unexpected reference count. Expected 1 and got " +
-            std::to_string(b.use_count());
+        UnexpectedEq(b.use_count(), 1, "reference count");
 
         ASSERT_TRUE(waiting_unsafe) <<
             "Thread did not wait for buffer to be available";
 
-        EXPECT_EQ(b.use_count(), 1) <<
-            "Unexpected reference count. Expected 1 and got " +
-            std::to_string(b.use_count());
+        UnexpectedEq(b.use_count(), 1, "reference count");
     }
 
     check.join();
@@ -456,9 +395,7 @@ void unit_test::wait_on_fill_threaded(
     EXPECT_FALSE(waiting_unsafe) <<
         "Thread did not end and join correctly";
 
-    EXPECT_EQ(recycler->private_free_size(), max) << "Expected " +
-        std::to_string(max) + " free buffers. Have " +
-        std::to_string(recycler->private_free_size());
+    UnexpectedEq(recycler->private_free_size(), max, "number of free buffers");
 }
 
 template <typename T>
@@ -470,9 +407,7 @@ void unit_test::thread_wait_queue(
     waiting_unsafe = true;
     cv->notify_all();
     auto b = recycler->operate();
-    EXPECT_EQ(b.use_count(), 1) <<
-        "Unexpected reference count. Expected 1 and got " +
-        std::to_string(b.use_count());
+    UnexpectedEq(b.use_count(), 1, "reference count");
     waiting_unsafe = false;
 
 }
@@ -506,9 +441,7 @@ void unit_test::buffer_from_empty_queue_threaded(
     {
         auto b = recycler->fill();
         *b = data;
-        ASSERT_EQ(b.use_count(), 1) <<
-            "Unexpected reference count. Expected 1 and got " +
-            std::to_string(b.use_count());
+        UnexpectedEq(b.use_count(), 1, "reference count");
         recycler->queue(b);
     }
 
@@ -517,9 +450,7 @@ void unit_test::buffer_from_empty_queue_threaded(
     EXPECT_FALSE(waiting_unsafe) <<
         "Thread did not end and join correctly";
 
-    EXPECT_EQ(recycler->private_free_size(), max) << "Expected " +
-        std::to_string(max) + " free buffers. Have " +
-        std::to_string(recycler->private_free_size());
+    UnexpectedEq(recycler->private_free_size(), max, "number of free buffers");
 }
 
 
@@ -546,13 +477,10 @@ void unit_test::wait_multi_take_from_fill_threaded(
         for (int i = 0; i < max; i++) {
             buffers.push_back(recycler->fill());
 
-            EXPECT_EQ(buffers[i].use_count(), 1) <<
-            "Unexpected reference count. Expected 1 and got " +
-            std::to_string(buffers[i].use_count());
+            UnexpectedEq(buffers[i].use_count(), 1, "reference count");
 
             *buffers[i] = data; 
-            ASSERT_EQ(*buffers[i], data) << "Unexpected value. Expected " +
-                t2string(data) + " but got " + t2string(*buffers[i]);
+            UnexpectedEq(*buffers[i], data, "value");
         }
 
         check = std::thread
@@ -573,9 +501,7 @@ void unit_test::wait_multi_take_from_fill_threaded(
     EXPECT_FALSE(waiting_unsafe) <<
         "Thread did not end and join correctly";
 
-    EXPECT_EQ(recycler->private_free_size(), max) << "Expected " +
-        std::to_string(max) + " free buffers. Have " +
-        std::to_string(recycler->private_free_size());
+    UnexpectedEq(recycler->private_free_size(), max, "number of free buffers");
 }
 
 // exercise reference counting with the buffer & recycle (use a watcher)
