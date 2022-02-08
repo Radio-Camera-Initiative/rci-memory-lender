@@ -8,6 +8,7 @@
 #include <mutex>
 #include <cstring>
 #include <cassert>
+#include <algorithm>
 #include <condition_variable>
 
 // #define NDEBUG 
@@ -16,13 +17,19 @@ template <typename T>
 class recycle_memory;
 
 template <typename T>
-struct reuseable_buffer {
+class buffer_ptr;
+
+template <typename T>
+class reuseable_buffer {
+    friend class buffer_ptr<T>;
+    friend class unit_test;
+    
     private:
         recycle_memory<T>& recycle;
-    
-    public:
         // if this was shared_ptr, would memory be deleted at destruction?
         T* ptr; 
+
+    public: 
         std::vector<size_t> shape;
 
         reuseable_buffer(T* p, recycle_memory<T>& r) : recycle(r) {
@@ -44,21 +51,22 @@ struct reuseable_buffer {
 template <typename T>
 class buffer_ptr {
     friend class unit_test;
+    friend class recycle_memory<T>;
 
     private:
         std::shared_ptr<reuseable_buffer<T>> sp;
         size_t size;
+
+        buffer_ptr(T* memory, recycle_memory<T>& recycler) {
+            sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
+            size = recycler.size;
+        }
 
         int use_count() {
             return sp.use_count();
         }
 
     public:
-
-        buffer_ptr(T* memory, recycle_memory<T>& recycler) {
-            sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
-            size = recycler.size;
-        }
 
         // const noexcept are here because shared_ptr had them. tbd on removing
         T& operator*() const noexcept {
@@ -95,19 +103,20 @@ class recycle_memory {
     private:
         const std::vector<size_t> shape;
         size_t size;
-        std::queue<buffer_ptr<T>> change_q;
+        std::deque<buffer_ptr<T>> change_q;
         std::mutex change_mutex;
         std::condition_variable change_variable;
-        std::queue<T*> free_q;
+        std::deque<T*> free_q;
         std::mutex free_mutex;
         std::condition_variable free_variable;
 
         void return_memory(T* p) {
             std::unique_lock<std::mutex> guard(free_mutex);
             #ifndef NDEBUG
+            if(std::find(free_q.begin(), free_q.end(), p) != free_q.end()) return;
             memset(p, 0xf0, sizeof(T)*size);
             #endif
-            free_q.push(p);
+            free_q.push_back(p);
             guard.unlock();
             free_variable.notify_one();
         }
@@ -135,8 +144,8 @@ class recycle_memory {
          * recycle_memory will not exceed a certain memory size.
          */
         recycle_memory(std::vector<size_t> s, unsigned int max) : shape(s) {
-            change_q = std::queue<buffer_ptr<T>>();
-            free_q = std::queue<T*>();
+            change_q = std::deque<buffer_ptr<T>>();
+            free_q = std::deque<T*>();
 
             // No other thread should interfere in the constructor, but this 
             // is to prevent any instruction reordering
@@ -161,7 +170,7 @@ class recycle_memory {
                 #ifndef NDEBUG
                 memset(temp, 0xf0, sizeof(T)*size);
                 #endif
-                free_q.push(temp);
+                free_q.push_back(temp);
             }
         }
         /*
@@ -175,7 +184,7 @@ class recycle_memory {
 
             while (!free_q.empty()) {
                 T* temp = free_q.front(); 
-                free_q.pop();
+                free_q.pop_front();
                 if (temp != NULL) {
                     delete temp;
                 }
@@ -194,7 +203,7 @@ class recycle_memory {
 
             // take from free list
             T* ptr = free_q.front();
-            free_q.pop();
+            free_q.pop_front();
 
             #ifndef NDEBUG
             // check there was no changes after free
@@ -215,7 +224,7 @@ class recycle_memory {
          */
         void queue(buffer_ptr<T> ptr) {
             std::unique_lock<std::mutex> guard(change_mutex);
-            change_q.push(ptr);
+            change_q.push_back(ptr);
             guard.unlock();
             change_variable.notify_one();
         }
@@ -231,7 +240,7 @@ class recycle_memory {
             }
 
             buffer_ptr<T> r = change_q.front();
-            change_q.pop();
+            change_q.pop_front();
             change_mutex.unlock();
 
             return r;

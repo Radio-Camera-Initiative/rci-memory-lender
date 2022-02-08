@@ -62,7 +62,7 @@ void test_array() {
     // fill each index with its number
     int i = 0;
     for (size_t idx = 0; idx < size; idx++, i++) {
-        *(buffer->ptr + idx) = i;
+        buffer[idx] = i;
 
         std::cout << "Expected index " + std::to_string(idx) +
             " to be " + std::to_string(i) + " and got " + 
