@@ -409,4 +409,16 @@ TEST(Debug, MemoryCheckUseAfterFreeAssert) {
     EXPECT_DEATH(r3->fill(), "Assertion .* failed.");
 }
 
+TEST(Debug, QueueInvalidPointerDiffRecycler) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<recycle_memory<int>> r3 = 
+        std::make_shared<recycle_memory<int>>(shape, max); 
+    std::shared_ptr<recycle_memory<int>> r2 = 
+        std::make_shared<recycle_memory<int>>(shape, max); 
+
+    auto p2 = r2->fill();
+    EXPECT_DEATH(r3->queue(p2), ".* Assertion .* failed.");
+}
+
 #endif

@@ -5,6 +5,7 @@
 #include <queue>
 #include <memory>
 #include <new>
+#include <set>
 #include <mutex>
 #include <cstring>
 #include <cassert>
@@ -109,11 +110,15 @@ class recycle_memory {
         std::deque<T*> free_q;
         std::mutex free_mutex;
         std::condition_variable free_variable;
+        #ifndef NDEBUG
+        std::set<T*> pointers;
+        #endif
 
         void return_memory(T* p) {
             std::unique_lock<std::mutex> guard(free_mutex);
             #ifndef NDEBUG
-            if(std::find(free_q.begin(), free_q.end(), p) != free_q.end()) return;
+            // buffer_ptr constructor is private so no rogue buffers will ever 
+            // reach this function
             memset(p, 0xf0, sizeof(T)*size);
             #endif
             free_q.push_back(p);
@@ -146,6 +151,9 @@ class recycle_memory {
         recycle_memory(std::vector<size_t> s, unsigned int max) : shape(s) {
             change_q = std::deque<buffer_ptr<T>>();
             free_q = std::deque<T*>();
+            #ifndef NDEBUG
+            pointers = std::set<T*>();
+            #endif
 
             // No other thread should interfere in the constructor, but this 
             // is to prevent any instruction reordering
@@ -169,6 +177,7 @@ class recycle_memory {
 
                 #ifndef NDEBUG
                 memset(temp, 0xf0, sizeof(T)*size);
+                pointers.insert(temp);
                 #endif
                 free_q.push_back(temp);
             }
@@ -224,6 +233,9 @@ class recycle_memory {
          */
         void queue(buffer_ptr<T> ptr) {
             std::unique_lock<std::mutex> guard(change_mutex);
+            #ifndef NDEBUG
+            assert(pointers.find(ptr.get()) != pointers.end());
+            #endif
             change_q.push_back(ptr);
             guard.unlock();
             change_variable.notify_one();
