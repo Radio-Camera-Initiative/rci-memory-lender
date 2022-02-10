@@ -34,6 +34,8 @@
 # VSCode
 .vscode
 
+.npy
+
 # CMake
 testing/build/
 testing/CMakeFiles
