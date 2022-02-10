@@ -105,19 +105,19 @@ class recycle_memory {
             free_variable.notify_one();
         }
 
-        bool change_condition() {
+        auto change_condition() -> bool {
             return !change_q.empty();
         }
 
-        bool free_condition() {
+        auto free_condition() -> bool {
             return !free_q.empty();
         }
 
-        int private_free_size() {
+        auto private_free_size() -> int {
             return free_q.size();
         }
 
-        int private_queue_size() {
+        auto private_queue_size() -> int {
             return change_q.size();
         }
 
@@ -127,7 +127,7 @@ class recycle_memory {
          * the shape and the max number of buffers for this type. This means
          * recycle_memory will not exceed a certain memory size.
          */
-        recycle_memory(std::vector<size_t> s, unsigned int max) : shape(s) {
+        recycle_memory(const std::vector<size_t> s, unsigned int max) : shape(s) {
             change_q = std::queue<buffer_ptr<T>>();
             free_q = std::queue<T*>();
 
@@ -174,7 +174,7 @@ class recycle_memory {
         /* get a shared pointer to the buffer we want to fill with data 
          * NOTE: this is a blocking operation until a buffer is free
          */
-        buffer_ptr<T> fill() {
+        auto fill() -> buffer_ptr<T> {
 
             std::unique_lock<std::mutex> lock(free_mutex);
             while(free_q.empty()) {  
@@ -204,7 +204,7 @@ class recycle_memory {
         /* get a shared pointer from the queue to operate on  
          * NOTE: this is a blocking operation until a buffer is queued
          */
-        buffer_ptr<T> operate() {
+        auto operate() -> buffer_ptr<T> {
 
             std::unique_lock<std::mutex> lock(change_mutex);
             while (change_q.empty()) {
