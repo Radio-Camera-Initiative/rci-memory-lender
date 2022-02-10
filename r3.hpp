@@ -30,7 +30,7 @@ struct reuseable_buffer {
             recycle.return_memory(ptr);
         }
 
-        T& operator[](unsigned int i) const noexcept {
+        auto operator[](unsigned int i) const noexcept -> T& {
             // TODO: what to check here when indexing?
             return *(ptr + i);
         }
@@ -45,7 +45,7 @@ class buffer_ptr {
         std::shared_ptr<reuseable_buffer<T>> sp;
         size_t size;
 
-        int use_count() {
+        auto use_count() -> int {
             return sp.use_count();
         }
 
@@ -57,21 +57,21 @@ class buffer_ptr {
         }
 
         // const noexcept are here because shared_ptr had them. tbd on removing
-        T& operator*() const noexcept {
+        auto operator*() const noexcept -> T& {
             return *(sp->ptr);
         }
 
-        reuseable_buffer<T>* operator->() const noexcept {
+        auto operator->() const noexcept -> reuseable_buffer<T>* {
             return sp.get();
         }
 
-        T& operator[](int i) const noexcept {
+        auto operator[](int i) const noexcept -> T&{
             assert(i >= 0);
             assert(i < size);
             return *(sp->ptr + i);
         }
 
-        T* get() const noexcept {
+        auto get() const noexcept -> T* {
             return sp->ptr;
         }
 };
