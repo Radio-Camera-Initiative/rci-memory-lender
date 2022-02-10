@@ -30,9 +30,11 @@ void change_vis(recycle_memory<int>& r3) {
 
 void test_int() {
     // make the class
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    recycle_memory<int> r3 = recycle_memory<int>(shape, 1); 
-    std::cout << r3.private_free_size() << std::endl;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1); // n copies of i (n, i)
+    int max = 1;
+    recycle_memory<int> r3(shape, max); 
+    // std::cout << r3.private_free_size() << std::endl;
+
 
     // make a thread to be making visibilities
     std::thread making (make_vis, std::ref(r3));
@@ -43,11 +45,34 @@ void test_int() {
     making.join();
     changing.join();
     
-    std::cout << r3.private_free_size() << std::endl;
+    // std::cout << r3.private_free_size() << std::endl;
+}
+
+void test_array() {
+    std::vector<size_t> shape = std::vector<size_t>(2, 2); // n copies of i (n, i)
+    int max = 1;
+    recycle_memory<int> recycler(shape, max); 
+        auto buffer = recycler.fill();
+
+    size_t size = 1;
+    for (auto iter = shape.begin(); iter != shape.end(); iter++) {
+        size *= *iter;
+    }
+
+    // fill each index with its number
+    int i = 0;
+    for (size_t idx = 0; idx < size; idx++, i++) {
+        *(buffer->ptr + idx) = i;
+
+        std::cout << "Expected index " + std::to_string(idx) +
+            " to be " + std::to_string(i) + " and got " + 
+            std::to_string(buffer[idx]) << std::endl;
+    }
 }
 
 int main(int argc, char** argv) {
     test_int();
+    test_array();
 
     // TODO: how does the main thread not end before all the sub threads from
     //    the operating threads end

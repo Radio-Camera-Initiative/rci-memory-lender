@@ -29,29 +29,51 @@ struct reuseable_buffer {
         ~reuseable_buffer() {
             recycle.return_memory(ptr);
         }
+
+        auto operator[](unsigned int i) const noexcept -> T& {
+            // TODO: what to check here when indexing?
+            return *(ptr + i);
+        }
 };
 
 /* wrapper object for shared_ptrs */
 template <typename T>
 class buffer_ptr {
-    std::shared_ptr<reuseable_buffer<T>> sp;
+    friend class unit_test;
+
+    private:
+        std::shared_ptr<reuseable_buffer<T>> sp;
+        size_t size;
+
+        auto use_count() -> int {
+            return sp.use_count();
+        }
 
     public:
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler) {
             sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
+            size = recycler.size;
         }
 
         // const noexcept are here because shared_ptr had them. tbd on removing
-        T& operator*() const noexcept {
+        auto operator*() const noexcept -> T& {
             return *(sp->ptr);
         }
 
-        T* operator->() const noexcept {
+        auto operator->() const noexcept -> reuseable_buffer<T>* {
             return sp.get();
         }
-    
-    // TODO: array indexing operations
+
+        auto operator[](int i) const noexcept -> T&{
+            assert(i >= 0);
+            assert(i < size);
+            return *(sp->ptr + i);
+        }
+
+        auto get() const noexcept -> T* {
+            return sp->ptr;
+        }
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -62,10 +84,13 @@ class buffer_ptr {
 template <typename T>
 class recycle_memory {
     friend struct reuseable_buffer<T>;
+    friend class buffer_ptr<T>;
+    friend class unit_test;
 
     // has a vector of recycle_memory struct pointers.
     private:
         const std::vector<size_t> shape;
+        size_t size;
         std::queue<buffer_ptr<T>> change_q;
         std::mutex change_mutex;
         std::condition_variable change_variable;
@@ -80,12 +105,20 @@ class recycle_memory {
             free_variable.notify_one();
         }
 
-        bool change_condition() {
+        auto change_condition() -> bool {
             return !change_q.empty();
         }
 
-        bool free_condition() {
+        auto free_condition() -> bool {
             return !free_q.empty();
+        }
+
+        auto private_free_size() -> int {
+            return free_q.size();
+        }
+
+        auto private_queue_size() -> int {
+            return change_q.size();
         }
 
     public:
@@ -94,7 +127,7 @@ class recycle_memory {
          * the shape and the max number of buffers for this type. This means
          * recycle_memory will not exceed a certain memory size.
          */
-        recycle_memory(std::vector<size_t> s, unsigned int max) : shape(s) {
+        recycle_memory(const std::vector<size_t> s, unsigned int max) : shape(s) {
             change_q = std::queue<buffer_ptr<T>>();
             free_q = std::queue<T*>();
 
@@ -104,9 +137,15 @@ class recycle_memory {
 
             // Centralize allocation avoid waiting later on. Assumes all 
             // memory is used
+            size = 1;
+            for (auto iter = shape.begin(); iter != shape.end(); iter++) {
+                size *= *iter;
+            }
+
             for (unsigned int i = 0; i < max; i++) {
                 // use nothrow because we don't do anything with the exception
-                T* temp = new(std::nothrow) T();
+                T* temp = new(std::nothrow) T[size];
+                // TODO: for testing this should be set to a known value
                 if (temp == nullptr) {
                     // we could set a different value as max in the object
                     break;
@@ -135,7 +174,7 @@ class recycle_memory {
         /* get a shared pointer to the buffer we want to fill with data 
          * NOTE: this is a blocking operation until a buffer is free
          */
-        buffer_ptr<T> fill() {
+        auto fill() -> buffer_ptr<T> {
 
             std::unique_lock<std::mutex> lock(free_mutex);
             while(free_q.empty()) {  
@@ -165,7 +204,7 @@ class recycle_memory {
         /* get a shared pointer from the queue to operate on  
          * NOTE: this is a blocking operation until a buffer is queued
          */
-        buffer_ptr<T> operate() {
+        auto operate() -> buffer_ptr<T> {
 
             std::unique_lock<std::mutex> lock(change_mutex);
             while (change_q.empty()) {
@@ -177,14 +216,6 @@ class recycle_memory {
             change_mutex.unlock();
 
             return r;
-        }
-
-        int private_free_size() {
-            return free_q.size();
-        }
-
-        int private_queue_size() {
-            return change_q.size();
         }
 };
 
