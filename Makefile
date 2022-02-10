@@ -1,14 +1,14 @@
 CC = /usr/bin/g++
 FLAGS = -std=c++2a -g
-INCLUDE = -I.
+INCLUDE = -I. -I/opt/include
 
-LD_FLAGS = -lrt -Wall -lpthread
+LD_FLAGS = -lrt -Wall -lpthread -lidg-cuda -L/opt/lib -lidg-util -lidg-common -lidg -lcasa_ms -lcasa_tables -lcasa_casa
 
 
 DEPS = r3.hpp
-SOURCES = main.cpp
+SOURCES = gridding.cpp
 
-TARGETS = main
+TARGETS = gridding
 
 all: $(TARGETS)
 
