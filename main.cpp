@@ -2,7 +2,7 @@
 #include <vector>
 #include <thread>
 #include <iostream>
-#include "r3.hpp"
+#include "lender.hpp"
 
 /* ask class for buffers and hand them back */
 void make_vis(recycle_memory<int>& r3) {

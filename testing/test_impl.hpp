@@ -6,7 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "../r3.hpp"
+#include "../lender.hpp"
 #include "gtest/gtest.h"
 #include "test_class.hpp"
 

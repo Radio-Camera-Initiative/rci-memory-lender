@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 #include "test_class.hpp"
-#include "../r3.hpp"
+#include "../lender.hpp"
 #include <complex>
 
 TEST(BasicFunctions, IntMakeRecycleMemory) {

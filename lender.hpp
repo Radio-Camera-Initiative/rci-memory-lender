@@ -1,5 +1,5 @@
-#ifndef R3_H
-#define R3_H
+#ifndef LENDER_H
+#define LENDER_H
 
 #include <vector>
 #include <queue>
@@ -33,19 +33,9 @@ class reuseable_buffer {
     public: 
         std::vector<size_t> shape;
 
-        reuseable_buffer(T* p, recycle_memory<T>& r) : recycle(r) {
-            shape = recycle.shape;
-            ptr = p;
-        }
-
-        ~reuseable_buffer() {
-            recycle.return_memory(ptr);
-        }
-
-        auto operator[](unsigned int i) const noexcept -> T& {
-            // TODO: what to check here when indexing?
-            return *(ptr + i);
-        }
+        reuseable_buffer(T* p, recycle_memory<T>& r);
+        ~reuseable_buffer();
+        auto operator[](unsigned int i) const noexcept -> T&;
 };
 
 /* wrapper object for shared_ptrs */
@@ -58,35 +48,34 @@ class buffer_ptr {
         std::shared_ptr<reuseable_buffer<T>> sp;
         size_t size;
 
-        buffer_ptr(T* memory, recycle_memory<T>& recycler) {
-            sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
-            size = recycler.size;
-        }
-
-        auto use_count() -> int {
-            return sp.use_count();
-        }
+        buffer_ptr(T* memory, recycle_memory<T>& recycler);
+        /* Give number of shared pointers that have the pointer reference.
+         * NOTE: used for testing
+         */
+        auto use_count() -> int;
 
     public:
-
         // const noexcept are here because shared_ptr had them. tbd on removing
-        auto operator*() const noexcept -> T& {
-            return *(sp->ptr);
-        }
 
-        auto operator->() const noexcept -> reuseable_buffer<T>* {
-            return sp.get();
-        }
-
-        auto operator[](int i) const noexcept -> T&{
-            assert(i >= 0);
-            assert(static_cast<size_t>(i) < size);
-            return *(sp->ptr + i);
-        }
-
-        auto get() const noexcept -> T* {
-            return sp->ptr;
-        }
+        /* Give reference to the underlying pointer 
+         * Will give an int to read from and write to
+         */
+        auto operator*() const noexcept -> T&;
+        /* Give access to any public functions/elements in reuseable_buffer<T> 
+         */
+        auto operator->() const noexcept -> reuseable_buffer<T>*;
+        /* Give access to an element in the array of the pointer
+         * Checks that the index is more than zero
+         * Checks that the index is within the size of the array
+         */
+        auto operator[](int i) const noexcept -> T&;
+        /* Give the raw pointer that is being managed
+         * NOTE: the memory itself will still be managed by the recycler, 
+         *       meaning that its lifetime is still as expected with other 
+         *       buffer_ptrs even though new objects can be made from the raw 
+         *       pointer
+         */
+        auto get() const noexcept -> T*;
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -261,5 +250,7 @@ class recycle_memory {
 };
 
 // TODO: make memory_collection: variadic template for as many buffer types as we want.
+
+#include "buffer.hpp"
 
 #endif
