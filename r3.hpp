@@ -5,6 +5,7 @@
 #include <queue>
 #include <memory>
 #include <new>
+#include <cassert>
 #include <mutex>
 #include <condition_variable>
 
