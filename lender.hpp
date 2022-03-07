@@ -103,33 +103,12 @@ class recycle_memory {
         std::set<T*> pointers;
         #endif
 
-        void return_memory(T* p) {
-            std::unique_lock<std::mutex> guard(free_mutex);
-            #ifndef NDEBUG
-            // buffer_ptr constructor is private so no rogue buffers will ever 
-            // reach this function
-            memset(p, 0xf0, sizeof(T)*size);
-            #endif
-            free_q.push_back(p);
-            guard.unlock();
-            free_variable.notify_one();
-        }
+        void return_memory(T* p);
 
-        auto change_condition() -> bool {
-            return !change_q.empty();
-        }
-
-        auto free_condition() -> bool {
-            return !free_q.empty();
-        }
-
-        auto private_free_size() -> int {
-            return free_q.size();
-        }
-
-        auto private_queue_size() -> int {
-            return change_q.size();
-        }
+        auto change_condition() -> bool;
+        auto free_condition() -> bool;
+        auto private_free_size() -> int;
+        auto private_queue_size() -> int;
 
     public:
         /*
@@ -138,119 +117,32 @@ class recycle_memory {
          * recycle_memory will not exceed a certain memory size.
          */
 
-        recycle_memory(const std::vector<size_t> s, unsigned int max) : shape(s) {
-            change_q = std::deque<buffer_ptr<T>>();
-            free_q = std::deque<T*>();
-            #ifndef NDEBUG
-            pointers = std::set<T*>();
-            #endif
-
-            // No other thread should interfere in the constructor, but this 
-            // is to prevent any instruction reordering
-            std::lock_guard<std::mutex> guard(free_mutex);
-
-            // Centralize allocation avoid waiting later on. Assumes all 
-            // memory is used
-            size = 1;
-            for (auto iter = shape.begin(); iter != shape.end(); iter++) {
-                size *= *iter;
-            }
-
-            for (unsigned int i = 0; i < max; i++) {
-                // use nothrow because we don't do anything with the exception
-                T* temp = new(std::nothrow) T[size];
-                // TODO: for testing this should be set to a known value
-                if (temp == nullptr) {
-                    // we could set a different value as max in the object
-                    break;
-                }
-
-                #ifndef NDEBUG
-                memset(temp, 0xf0, sizeof(T)*size);
-                pointers.insert(temp);
-                #endif
-                free_q.push_back(temp);
-            }
-        }
+        recycle_memory(const std::vector<size_t> s, unsigned int max);
         /*
          * Destructor must destroy ALL memory that was allocated using their
          * corresponding destructors
          */
-        ~recycle_memory() {
-            // TODO: make sure all buffers have released their memory to free
-
-            std::lock_guard<std::mutex> guard(free_mutex);
-
-            while (!free_q.empty()) {
-                T* temp = free_q.front(); 
-                free_q.pop_front();
-                if (temp != NULL) {
-                    delete temp;
-                }
-            }
-        }
+        ~recycle_memory();
 
         /* get a shared pointer to the buffer we want to fill with data 
          * NOTE: this is a blocking operation until a buffer is free
          */
-        auto fill() -> buffer_ptr<T> {
-
-            std::unique_lock<std::mutex> lock(free_mutex);
-            while(free_q.empty()) {  
-                free_variable.wait(lock);
-            }
-
-            // take from free list
-            T* ptr = free_q.front();
-            free_q.pop_front();
-
-            #ifndef NDEBUG
-            // check there was no changes after free
-            T* f = new T();
-            memset(f, 0xf0, sizeof(T));
-            assert(memcmp(ptr, f, sizeof(T)) == 0);
-            memset(ptr, 0, sizeof(T)*size);
-            #endif
-
-            // make reuseable_buffer for the buffer
-            auto sp = buffer_ptr<T>(ptr, *this);
-            return sp;
-
-        }
+        auto fill() -> buffer_ptr<T>;
 
         /* give a shared pointer back to be queued for operation 
          * NOTE: this is a blocking operation
          */
-        void queue(buffer_ptr<T> ptr) {
-            std::unique_lock<std::mutex> guard(change_mutex);
-            #ifndef NDEBUG
-            assert(pointers.find(ptr.get()) != pointers.end());
-            #endif
-            change_q.push_back(ptr);
-            guard.unlock();
-            change_variable.notify_one();
-        }
+        void queue(buffer_ptr<T> ptr);
 
         /* get a shared pointer from the queue to operate on  
          * NOTE: this is a blocking operation until a buffer is queued
          */
-        auto operate() -> buffer_ptr<T> {
-
-            std::unique_lock<std::mutex> lock(change_mutex);
-            while (change_q.empty()) {
-                change_variable.wait(lock);
-            }
-
-            buffer_ptr<T> r = change_q.front();
-            change_q.pop_front();
-            change_mutex.unlock();
-
-            return r;
-        }
+        auto operate() -> buffer_ptr<T>;
 };
 
 // TODO: make memory_collection: variadic template for as many buffer types as we want.
 
 #include "buffer.hpp"
+#include "recycler.hpp"
 
 #endif
