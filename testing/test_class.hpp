@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 
-#include "../r3.hpp"
+#include "../lender.hpp"
 
 /* Unit testing class - for friending purposes */
 struct unit_test {

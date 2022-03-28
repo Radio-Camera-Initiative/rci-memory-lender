@@ -2,7 +2,7 @@
 #include <vector>
 #include <thread>
 #include <iostream>
-#include "r3.hpp"
+#include "lender.hpp"
 
 /* ask class for buffers and hand them back */
 void make_vis(recycle_memory<int>& r3) {
@@ -52,7 +52,7 @@ void test_array() {
     std::vector<size_t> shape = std::vector<size_t>(2, 2); // n copies of i (n, i)
     int max = 1;
     recycle_memory<int> recycler(shape, max); 
-        auto buffer = recycler.fill();
+    auto buffer = recycler.fill();
 
     size_t size = 1;
     for (auto iter = shape.begin(); iter != shape.end(); iter++) {
@@ -62,7 +62,7 @@ void test_array() {
     // fill each index with its number
     int i = 0;
     for (size_t idx = 0; idx < size; idx++, i++) {
-        *(buffer->ptr + idx) = i;
+        buffer[idx] = i;
 
         std::cout << "Expected index " + std::to_string(idx) +
             " to be " + std::to_string(i) + " and got " + 
@@ -70,9 +70,43 @@ void test_array() {
     }
 }
 
+void test_debug() {
+    std::vector<size_t> shape = std::vector<size_t>(2, 2); // n copies of i (n, i)
+    int max = 1;
+    recycle_memory<int> recycler(shape, max); 
+    size_t size = 1;
+    for (auto iter = shape.begin(); iter != shape.end(); iter++) {
+        size *= *iter;
+    }
+    // size *= sizeof(int);
+    std::cout << sizeof(int) << std::endl;
+    int* raw_ptr;
+    {
+        auto buffer = recycler.fill();
+        raw_ptr = buffer.get();
+
+        for (size_t ci = 0; ci < size; ci++) {
+            std::cout << raw_ptr[ci] << std::endl;
+        }
+    }
+
+    std::cout << std::dec << raw_ptr << std::endl;
+    
+    for (size_t ci = 0; ci < size; ci++) {
+        std::cout << std::hex << raw_ptr[ci] << std::endl;
+    }
+
+    int* f = new int();
+    memset(f, 0xf0, sizeof(int));
+    std::cout << memcmp(f, raw_ptr, sizeof(int)) << std::endl;
+    free(f);
+    
+}
+
 int main(int argc, char** argv) {
     test_int();
     test_array();
+    test_debug();
 
     // TODO: how does the main thread not end before all the sub threads from
     //    the operating threads end

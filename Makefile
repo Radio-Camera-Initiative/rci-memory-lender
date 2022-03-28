@@ -5,7 +5,7 @@ INCLUDE = -I.
 LD_FLAGS = -lrt -Wall -lpthread
 
 
-DEPS = r3.hpp
+DEPS = lender.hpp
 SOURCES = main.cpp
 
 TARGETS = main
