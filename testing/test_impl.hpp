@@ -560,9 +560,51 @@ void unit_test::watcher_check_reference_counts(
     watcher.join();
 }
 
-// TODO: exercise multiple writing threads
+// exercise multiple writing threads
+
+// main thread fills 100x
+// m buffers, n threads to read and release buffers
+
+template <typename T>
+void unit_test::thread_take_and_release(
+    std::shared_ptr<recycle_memory<T>> recycler
+) {
+    while(true) { 
+        auto p = recycler->operate();
+        if (p.kill()) {
+            recycler->queue(p.poison_pill());
+            break;
+        }
+        *p = 0;
+    }
+}
+
+template <typename T>
+void unit_test::run_m_threads_n_buffers(
+    std::shared_ptr<recycle_memory<T>> recycler,
+    std::vector<T> v,
+    int m
+) {
+    std::vector<std::thread> threads(m); // make m
+    for (auto& i : threads) {
+        i = std::thread(thread_take_and_release<T>, recycler);
+    }
+    for(auto i : v) {
+        // fill
+        auto p = recycler->fill();
+        *p = i;
+        recycler->queue(p);
+    }
+    auto p = recycler->fill();
+    recycler->queue(p.poison_pill());
+    for (auto& i : threads) {
+        i.join();
+    }
+    // take the poison pill off to let the recycler clean everything up properly
+    p = recycler->operate();
+    ASSERT_TRUE(p.kill());
+}
+
+
 // TODO: exercise passing by const; 
 //       -> check reference count, not able to change buffer
-
-// TODO: exercise destruction of pointer memory (cleanup of recycler) 
-//       - might be valgrind??
