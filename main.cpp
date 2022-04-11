@@ -128,7 +128,7 @@ void testing_pipeline() {
     int max = 5;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
     std::shared_ptr<recycle_memory<int>> recycler = 
-        std::make_shared<recycle_memory<int>>(shape, max); 
+        std::make_shared<recycle_memory<int>>(shape, max*2); 
     std::vector<int> filling(30);
     std::iota(std::begin(filling), std::end(filling), 0);
     bool end_condition = false;
