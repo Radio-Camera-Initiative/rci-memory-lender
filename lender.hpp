@@ -52,6 +52,7 @@ class buffer_ptr {
 
     private:
         std::shared_ptr<reuseable_buffer<T>> sp;
+        bool kill_threads;
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler);
         /* Give number of shared pointers that have the pointer reference.
@@ -82,6 +83,10 @@ class buffer_ptr {
          *       pointer
          */
         auto get() const noexcept -> T*;
+
+        auto poison_pill() -> buffer_ptr<T>;
+
+        auto kill() -> bool;
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -138,6 +143,11 @@ class recycle_memory {
          * affect the data output. Specifically, it is assumed that MS files
          * will be written per time integration and that any final grids will 
          * be lost if they are in the course of accumulation.
+         * 
+         * NOTE: If system is shut down during operation, the memory waiting
+         *       in the queue or used by other threads is NOT freed. Unless the 
+         *       implementation is changed to allocate memory that cannot be 
+         *       cleaned by OS after the process, this should be fine.
          */
         ~recycle_memory();
 
