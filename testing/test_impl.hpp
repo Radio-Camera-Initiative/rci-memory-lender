@@ -6,7 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "../r3.hpp"
+#include "../lender.hpp"
 #include "gtest/gtest.h"
 #include "test_class.hpp"
 
@@ -238,7 +238,6 @@ void unit_test::dec_operate_queue(
     UnexpectedEq(recycler->private_queue_size(), 0, "queue size");
 }
 
-// FUTURE: array access
 
 // FUTURE: if user can give own shared_ptrs, check queue has max length
 
