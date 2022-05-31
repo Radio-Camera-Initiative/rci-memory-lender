@@ -6,7 +6,7 @@ LD_FLAGS = -lrt -Wall -lpthread -lidg-cuda -L/opt/lib -lidg-util -lidg-common -l
 
 
 DEPS = lender.hpp
-SOURCES = gridding.cpp main.cpp
+SOURCES = main.cpp
 
 TARGETS = main
 

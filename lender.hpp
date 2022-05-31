@@ -46,7 +46,6 @@ class buffer_ptr {
 
     private:
         std::shared_ptr<reuseable_buffer<T>> sp;
-        size_t size;
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler);
         /* Give number of shared pointers that have the pointer reference.
@@ -55,6 +54,7 @@ class buffer_ptr {
         auto use_count() -> int;
 
     public:
+        size_t size;
         // const noexcept are here because shared_ptr had them. tbd on removing
 
         /* Give reference to the underlying pointer 
