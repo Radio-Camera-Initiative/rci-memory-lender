@@ -8,12 +8,9 @@ LD_FLAGS = -lrt -Wall -lpthread -lidg-cuda -L/opt/lib -lidg-util -lidg-common -l
 DEPS = lender.hpp
 SOURCES = gridding.cpp main.cpp
 
-TARGETS = gridding main
+TARGETS = main
 
 all: $(TARGETS)
-
-gridding: gridding.cpp $(DEPS)
-	$(CC) $(FLAGS) -o gridding -O3 $(INCLUDE) gridding.cpp $(LD_FLAGS)
 
 main: main.cpp $(DEPS)
 	$(CC) $(FLAGS) -o main -O3 $(INCLUDE) main.cpp $(LD_FLAGS)
