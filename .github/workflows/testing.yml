@@ -1,0 +1,25 @@
+name: Unit Tests
+
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+    unit-testing:
+        name: Run unit tests
+        runs-on: ubuntu-latest
+        steps:
+        - uses: actions/checkout@v2
+        - name: configure
+          run: cmake -S ${{github.workspace}}/testing -B ${{github.workspace}}/testing/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        - name: build
+          run: cmake --build ${{github.workspace}}/testing/build
+        - name: test
+          working-directory: ${{github.workspace}}/testing/build
+          run: ctest
