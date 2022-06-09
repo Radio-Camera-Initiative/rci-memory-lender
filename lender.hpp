@@ -14,6 +14,12 @@
 
 // #define NDEBUG 
 
+/* DESIGN: As template classes, it is assumed that only primitives will be used
+ * in the final objects. These are the underlying storage units for every more
+ * complicated class used in radio astronomy, so this shall be sufficient for
+ * the pointers use in other algorithms.
+ */
+
 template <typename T>
 class recycle_memory;
 
@@ -115,12 +121,23 @@ class recycle_memory {
          * Instantiator takes in only one type (from the template), 
          * the shape and the max number of buffers for this type. This means
          * recycle_memory will not exceed a certain memory size.
+         * 
+         * DESIGN: Memory is eagerly allocated in this function to reduce any
+         * latency that might appear later in the pipeline for allocation.
+         * Users can experiment with optimal # of buffers with variable 'max'
          */
 
         recycle_memory(const std::vector<size_t> s, unsigned int max);
         /*
          * Destructor must destroy ALL memory that was allocated using their
          * corresponding destructors
+         * 
+         * DESIGN: Relevant to the pipeline, the memory lender does not provide
+         * extra functionality to ensure a clean system shutdown. It is assumed
+         * that every thread written can be terminated with malice and will not
+         * affect the data output. Specifically, it is assumed that MS files
+         * will be written per time integration and that any final grids will 
+         * be lost if they are in the course of accumulation.
          */
         ~recycle_memory();
 
