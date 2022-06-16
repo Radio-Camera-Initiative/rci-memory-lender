@@ -102,6 +102,13 @@ struct unit_test {
         std::shared_ptr<recycle_memory<T>> recycler
     );
 
+    template <typename T>
+    static void run_m_threads_n_buffers(
+        std::shared_ptr<recycle_memory<T>> recycler,
+        std::vector<T> v,
+        int m
+    );
+
     private:
         template <typename T>
         static void thread_read(buffer_ptr<T> b, T data);
@@ -124,6 +131,12 @@ struct unit_test {
             bool &operating_unsafe,
             int &check_ref
         );
+        template <typename T>
+        static void thread_take_and_release(
+            std::shared_ptr<recycle_memory<T>> recycler
+        );
+
+        
 
 
 };

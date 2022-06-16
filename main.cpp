@@ -103,10 +103,67 @@ void test_debug() {
     
 }
 
+// #include "testing/test_class.hpp"
+#include <numeric>
+
+template <typename T>
+void thread_take_and_release(
+    std::shared_ptr<recycle_memory<T>> recycler,
+    bool& end_condition
+) {
+    while(true) {
+        std::cout << "thread " << std::this_thread::get_id() << std::endl;
+        auto p = recycler->operate();
+        std::cout << "taking buffer" << std::endl;
+        if (p.kill()) {
+            std::cout << "killing " << std::this_thread::get_id() << std::endl;
+            recycler->queue(p.poison_pill());
+            break;
+        }
+        *p = 0;
+    }
+}
+
+void testing_pipeline() {
+    int max = 5;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<recycle_memory<int>> recycler = 
+        std::make_shared<recycle_memory<int>>(shape, max*2); 
+    std::vector<int> filling(30);
+    std::iota(std::begin(filling), std::end(filling), 0);
+    bool end_condition = false;
+    std::vector<std::thread> threads(max); // make m
+    for (auto& i : threads) {
+        i = std::thread(
+            thread_take_and_release<int>, recycler, std::ref(end_condition)
+        );
+    }
+    for(auto i : filling) {
+        // fill
+        auto p = recycler->fill();
+        *p = i;
+        std::cout << "writing " << std::to_string(*p) << std::endl;
+        recycler->queue(p);
+    }
+    auto p = recycler->fill();
+    std::cout << p.kill() << std::endl;
+    auto q = p.poison_pill();
+    std::cout << "q " << q.kill() << std::endl;
+    std::cout << p.kill() << std::endl;
+    recycler->queue(p);
+    // end_condition = true;
+    for (auto& i : threads) {
+        i.join();
+    }
+    // take the poison pill off to let the recycler clean everything up properly
+    p = recycler->operate();
+}
+
 int main(int argc, char** argv) {
     test_int();
     test_array();
     test_debug();
+    testing_pipeline();
 
     // TODO: how does the main thread not end before all the sub threads from
     //    the operating threads end

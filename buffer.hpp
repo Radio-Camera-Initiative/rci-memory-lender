@@ -33,6 +33,7 @@ template <typename T>
 buffer_ptr<T>::buffer_ptr(T* memory, recycle_memory<T>& recycler) {
     sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
     size = recycler.size;
+    kill_threads = false;
 }
 
 template <typename T>
@@ -60,4 +61,15 @@ auto buffer_ptr<T>::operator[](int i) const noexcept -> T&{
 template <typename T>
 auto buffer_ptr<T>::get() const noexcept -> T* {
     return sp->ptr;
+}
+
+template <typename T>
+auto buffer_ptr<T>::poison_pill() -> buffer_ptr<T>{
+    kill_threads = true;
+    return *this;
+}
+
+template <typename T>
+auto buffer_ptr<T>::kill() -> bool {
+    return kill_threads;
 }

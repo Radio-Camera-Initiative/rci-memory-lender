@@ -49,7 +49,12 @@ recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max)
 
 template <typename T>
 recycle_memory<T>::~recycle_memory() {
-    // TODO: make sure all buffers have released their memory to free
+    /*
+     * NOTE: If system is shut down during operation, the memory waiting
+     *       in the queue or used by other threads is NOT freed. Unless the 
+     *       implementation is changed to allocate memory that cannot be 
+     *       cleaned by OS after the process, this should be fine.
+     */
 
     std::lock_guard<std::mutex> guard(free_mutex);
 
