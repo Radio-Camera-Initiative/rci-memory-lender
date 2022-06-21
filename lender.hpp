@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cassert>
 #include <algorithm>
+#include <unordered_map>
 #include <condition_variable>
 
 // #define NDEBUG 
@@ -25,6 +26,9 @@ class recycle_memory;
 
 template <typename T>
 class library;
+
+template <typename T>
+class mailbox;
 
 template <typename T>
 class buffer_ptr;
@@ -52,6 +56,7 @@ template <typename T>
 class buffer_ptr {
     friend class unit_test;
     friend class library<T>;
+    friend class mailbox<T>;
 
     private:
         std::shared_ptr<reuseable_buffer<T>> sp;
@@ -196,10 +201,41 @@ class library : public recycle_memory<T> {
     auto operate() -> buffer_ptr<T>;
 };
 
+template <typename T>
+class mailbox : public recycle_memory<T> {
+    friend class mail_test;
+
+    private:
+        int max_read;
+        // TODO: does map_value need to be a template or not?
+        // template <typename T>
+        struct map_value {
+            std::mutex val_lock;
+            std::condition_variable val_cd;
+            int count;
+            buffer_ptr<T> value;
+        };
+
+        // Key of time integration, value of custom struct
+        std::unordered_map<int, std::shared_ptr<map_value>> box;
+        std::mutex box_lock;
+        std::mutex box_cv;
+
+        bool contains_key(int idx);
+
+    public:
+        mailbox(const std::vector<size_t> s, int max, int reads = 1);
+
+        auto fill() -> buffer_ptr<T>; // used for writers
+        void queue (int key, buffer_ptr<T> ptr);
+        auto operate(int key) -> buffer_ptr<T>; // used for readers
+};
+
 // TODO: make memory_collection: variadic template for as many buffer types as we want.
 
 #include "buffer.hpp"
 #include "recycler.hpp"
 #include "library.hpp"
+#include "mailbox.hpp"
 
 #endif
