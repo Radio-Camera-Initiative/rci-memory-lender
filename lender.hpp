@@ -55,6 +55,7 @@ class reuseable_buffer {
 template <typename T>
 class buffer_ptr {
     friend class unit_test;
+    friend class mail_test;
     friend class library<T>;
     friend class mailbox<T>;
 

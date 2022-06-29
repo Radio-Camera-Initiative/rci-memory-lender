@@ -239,7 +239,7 @@ void unit_test::set_buffer_ptr_array (
         UnexpectedEq(buffer[idx], i, "array value");
     }
 }
-
+// UP TO HERE IS DUAL TESTING
 // exercise using the operating queue for completed (filled) buffers
 
 template <typename T>
