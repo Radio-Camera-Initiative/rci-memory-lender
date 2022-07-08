@@ -104,7 +104,7 @@ class recycle_memory {
     friend class unit_test;
 
     // has a vector of recycle_memory struct pointers.
-    public:
+    protected:
         const std::vector<size_t> shape;
         size_t size;
         std::deque<T*> free_q;
@@ -151,7 +151,7 @@ class recycle_memory {
 };
 
 template <typename T>
-class library : private recycle_memory<T> {
+class library : public recycle_memory<T> {
     friend class unit_test;
     private:
         std::deque<buffer_ptr<T>> change_q;
