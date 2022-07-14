@@ -57,6 +57,8 @@ class buffer_ptr {
         std::shared_ptr<reuseable_buffer<T>> sp;
         bool kill_threads;
 
+        buffer_ptr();
+
         buffer_ptr(T* memory, recycle_memory<T>& recycler);
         /* Give number of shared pointers that have the pointer reference.
          * NOTE: used for testing
@@ -79,6 +81,9 @@ class buffer_ptr {
          * Checks that the index is within the size of the array
          */
         auto operator[](int i) const noexcept -> T&;
+
+        operator bool() const noexcept;
+
         /* Give the raw pointer that is being managed
          * NOTE: the memory itself will still be managed by the recycler, 
          *       meaning that its lifetime is still as expected with other 

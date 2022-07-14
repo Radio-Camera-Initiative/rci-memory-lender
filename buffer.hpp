@@ -28,6 +28,12 @@ auto reuseable_buffer<T>::operator[](unsigned int i) const noexcept -> T& {
     return *(ptr + i);
 }
 
+template <typename T>
+buffer_ptr<T>::buffer_ptr() {
+    sp = std::shared_ptr<reuseable_buffer<T>>(nullptr);
+    size = 0;
+    kill_threads = false;
+}
 
 template <typename T>
 buffer_ptr<T>::buffer_ptr(T* memory, recycle_memory<T>& recycler) {
@@ -59,7 +65,13 @@ auto buffer_ptr<T>::operator[](int i) const noexcept -> T&{
 }
 
 template <typename T>
+buffer_ptr<T>::operator bool() const noexcept{
+    return sp ? true : false;
+}
+
+template <typename T>
 auto buffer_ptr<T>::get() const noexcept -> T* {
+    assert(sp);
     return sp->ptr;
 }
 

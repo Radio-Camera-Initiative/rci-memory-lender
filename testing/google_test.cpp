@@ -4,6 +4,18 @@
 #include <complex>
 #include <numeric>
 
+TEST(BasicFunctions, NullBufferPtr) {
+    unit_test::null_buffer_ptr();
+}
+
+TEST(BasicFunctions, BufferPtrNullFill) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<library<int>> r3 = 
+        std::make_shared<library<int>>(shape, max); 
+    unit_test::buffer_ptr_null_fill<int>(r3, shape, max);
+}
+
 TEST(BasicFunctions, IntMakeRecycleMemory) {
     int max = 1;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);

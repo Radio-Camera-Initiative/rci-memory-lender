@@ -11,6 +11,14 @@
 struct unit_test {
     unit_test() {}
 
+    static void null_buffer_ptr();
+
+    template <typename T>
+    static void buffer_ptr_null_fill(
+        std::shared_ptr<library<T>> recycler,
+        std::vector<size_t> shape, int max
+    );
+
     template <typename T>
     static void make_recycle_memory(std::vector<size_t> shape, int max);
     
