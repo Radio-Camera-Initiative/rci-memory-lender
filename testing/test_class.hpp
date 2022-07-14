@@ -20,6 +20,12 @@ struct unit_test {
     );
 
     template <typename T>
+    static void buffer_ptr_fill_null(
+        std::shared_ptr<library<T>> recycler,
+        std::vector<size_t> shape, int max
+    );
+
+    template <typename T>
     static void make_recycle_memory(std::vector<size_t> shape, int max);
     
     template <typename T>

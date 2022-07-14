@@ -83,6 +83,8 @@ class buffer_ptr {
         auto operator[](int i) const noexcept -> T&;
 
         operator bool() const noexcept;
+        
+        buffer_ptr<T>& operator=(nullptr_t) noexcept;
 
         /* Give the raw pointer that is being managed
          * NOTE: the memory itself will still be managed by the recycler, 

@@ -69,6 +69,21 @@ buffer_ptr<T>::operator bool() const noexcept{
     return sp ? true : false;
 }
 
+/* TODO: Is this confusing? The buffer_ptr doesn't necessarily hold a nullptr, 
+ * it is just setting shared_ptr to empty. 
+ * 
+ * Side Note: As far as I can find 
+ * there is no real way for a shared_ptr to hold a null_ptr properly anyway, 
+ * they just tend to be empty.
+ */
+template <typename T>
+buffer_ptr<T>& buffer_ptr<T>::operator=(std::nullptr_t) noexcept {
+    sp.reset();
+    size = 0;
+    kill_threads = false;
+    return *this;
+}
+
 template <typename T>
 auto buffer_ptr<T>::get() const noexcept -> T* {
     assert(sp);
