@@ -27,6 +27,21 @@ struct mail_test {
     );
 
     template <typename T>
+    static void  mailbox_queue_one(
+        std::shared_ptr<mailbox<T>> recycler
+    );
+
+    template <typename T>
+    static void mailbox_queue_multi_buffer(
+        std::shared_ptr<mailbox<T>> recycler
+    );
+
+    template <typename T>
+    static void  mailbox_multi_queue_one_buffer(
+        std::shared_ptr<mailbox<T>> recycler
+    );
+
+    template <typename T>
     static void dec_buffer_ref_count(
         std::shared_ptr<mailbox<T>> recycler
     );

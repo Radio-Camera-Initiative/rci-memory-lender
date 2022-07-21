@@ -66,6 +66,82 @@ void mail_test::check_buffer_destruction(
 
 }
 
+template <typename T>
+void mail_test::mailbox_queue_one(
+    std::shared_ptr<mailbox<T>> recycler
+) {
+    buffer_ptr<T> p = recycler->fill();
+    UnexpectedEq(p.use_count(), 1, "reference count");
+    EXPECT_FALSE(recycler->contains_key(10));
+
+    recycler->queue(10, p);
+    UnexpectedEq(p.use_count(), 2, "reference count");
+    
+    // check that the recycler has something in map
+    // check that key exists in map
+    EXPECT_TRUE(recycler->contains_key(10));
+}
+
+template <typename T>
+void mail_test::mailbox_queue_multi_buffer(
+    std::shared_ptr<mailbox<T>> recycler
+) {
+    buffer_ptr<T> p = recycler->fill();
+    UnexpectedEq(p.use_count(), 1, "reference count");
+    EXPECT_FALSE(recycler->contains_key(10));
+    EXPECT_FALSE(recycler->contains_key(7));
+    EXPECT_FALSE(recycler->contains_key(45));
+
+    recycler->queue(10, p);
+    UnexpectedEq(p.use_count(), 2, "reference count");
+    EXPECT_TRUE(recycler->contains_key(10));
+
+    buffer_ptr<T> p2 = recycler->fill();
+    UnexpectedEq(p2.use_count(), 1, "reference count");
+
+    recycler->queue(7, p2);
+    UnexpectedEq(p.use_count(), 2, "reference count");
+    EXPECT_TRUE(recycler->contains_key(10));
+    EXPECT_TRUE(recycler->contains_key(7));
+    
+    buffer_ptr<T> p3 = recycler->fill();
+    UnexpectedEq(p3.use_count(), 1, "reference count");
+
+    recycler->queue(45, p3);
+    UnexpectedEq(p.use_count(), 2, "reference count");
+    EXPECT_TRUE(recycler->contains_key(10));
+    EXPECT_TRUE(recycler->contains_key(7));
+    EXPECT_TRUE(recycler->contains_key(45));
+}
+
+// check for same ptr multiple keys
+template <typename T>
+void mail_test::mailbox_multi_queue_one_buffer(
+    std::shared_ptr<mailbox<T>> recycler
+) {
+    buffer_ptr<T> p = recycler->fill();
+    UnexpectedEq(p.use_count(), 1, "reference count");
+    EXPECT_FALSE(recycler->contains_key(10));
+    EXPECT_FALSE(recycler->contains_key(7));
+    EXPECT_FALSE(recycler->contains_key(45));
+
+    recycler->queue(10, p);
+    UnexpectedEq(p.use_count(), 2, "reference count");
+    EXPECT_TRUE(recycler->contains_key(10));
+
+    recycler->queue(7, p);
+    UnexpectedEq(p.use_count(), 3, "reference count");
+    EXPECT_TRUE(recycler->contains_key(10));
+    EXPECT_TRUE(recycler->contains_key(7));
+
+    recycler->queue(45, p);
+    UnexpectedEq(p.use_count(), 4, "reference count");
+    EXPECT_TRUE(recycler->contains_key(10));
+    EXPECT_TRUE(recycler->contains_key(7));
+    EXPECT_TRUE(recycler->contains_key(45));
+
+}
+
 // exercise decrementing buffer reference count
 // TODO: more mailbox/recycler agnostic way of testing this.
 // TOTHINK: is testing the pointer in this way again necessary if both objects 

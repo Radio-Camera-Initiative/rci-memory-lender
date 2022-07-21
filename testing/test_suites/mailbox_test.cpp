@@ -30,6 +30,30 @@ TEST(MailboxDuplicates, IntCheckBufferDestruction) {
     mail_test::check_buffer_destruction<int>(r3, max);
 }
 
+TEST(MailboxDuplicates, IntQueueOneBuffer) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<int>> r3 = 
+        std::make_shared<mailbox<int>>(shape, max); 
+    mail_test::mailbox_queue_one<int>(r3);
+}
+
+TEST(MailboxDuplicates, IntQueueMultipleBuffer) {
+    int max = 5;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<int>> r3 = 
+        std::make_shared<mailbox<int>>(shape, max); 
+    mail_test::mailbox_queue_multi_buffer<int>(r3);
+}
+
+TEST(MailboxDuplicates, IntMultiQueueOneBuffer) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<int>> r3 = 
+        std::make_shared<mailbox<int>>(shape, max); 
+    mail_test::mailbox_multi_queue_one_buffer<int>(r3);
+}
+
 TEST(MailboxDuplicates, IntDecRefCount) {
     int max = 1;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
@@ -86,6 +110,30 @@ TEST(MailboxDuplicates, FloatCheckBufferDestruction) {
     mail_test::check_buffer_destruction<float>(r3, max);
 }
 
+TEST(MailboxDuplicates, FloatQueueOneBuffer) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<float>> r3 = 
+        std::make_shared<mailbox<float>>(shape, max); 
+    mail_test::mailbox_queue_one<float>(r3);
+}
+
+TEST(MailboxDuplicates, FloatQueueMultipleBuffer) {
+    int max = 5;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<float>> r3 = 
+        std::make_shared<mailbox<float>>(shape, max); 
+    mail_test::mailbox_queue_multi_buffer<float>(r3);
+}
+
+TEST(MailboxDuplicates, FloatMultiQueueOneBuffer) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<float>> r3 = 
+        std::make_shared<mailbox<float>>(shape, max); 
+    mail_test::mailbox_multi_queue_one_buffer<float>(r3);
+}
+
 TEST(MailboxDuplicates, FloatDecRefCount) {
     int max = 1;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
@@ -139,6 +187,30 @@ TEST(MailboxDuplicates, FComplexCheckBufferDestruction) {
         std::make_shared<mailbox<fcomplex>>(shape, max); 
     // unit_test::take_one_buffer_from_fill(r3, shape, max);
     mail_test::check_buffer_destruction<fcomplex>(r3, max);
+}
+
+TEST(MailboxDuplicates, FComplexQueueOneBuffer) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<fcomplex>> r3 = 
+        std::make_shared<mailbox<fcomplex>>(shape, max); 
+    mail_test::mailbox_queue_one<fcomplex>(r3);
+}
+
+TEST(MailboxDuplicates, FComplexQueueMultipleBuffer) {
+    int max = 5;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<fcomplex>> r3 = 
+        std::make_shared<mailbox<fcomplex>>(shape, max); 
+    mail_test::mailbox_queue_multi_buffer<fcomplex>(r3);
+}
+
+TEST(MailboxDuplicates, FComplexMultiQueueOneBuffer) {
+    int max = 1;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<fcomplex>> r3 = 
+        std::make_shared<mailbox<fcomplex>>(shape, max); 
+    mail_test::mailbox_multi_queue_one_buffer<fcomplex>(r3);
 }
 
 TEST(MailboxDuplicates, FComplexDecRefCount) {
