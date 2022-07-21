@@ -42,9 +42,34 @@ struct mail_test {
     );
 
     template <typename T>
-    static void dec_buffer_ref_count(
+    static void mailbox_read_single_entry_map(
         std::shared_ptr<mailbox<T>> recycler
     );
+
+    template <typename T>
+    static void mailbox_read_multi_entry_map(
+        std::shared_ptr<mailbox<T>> recycler
+    );
+
+    template <typename T>
+    static void mailbox_read_multi_entry_one_buffer(
+    std::shared_ptr<mailbox<T>> recycler
+);
+
+    template <typename T>
+    static void mailbox_multi_read_single_entry_map(
+        std::shared_ptr<mailbox<T>> recycler
+    );
+
+    template <typename T>
+    static void mailbox_multi_read_multi_entry_map(
+        std::shared_ptr<mailbox<T>> recycler
+    );
+
+    template <typename T>
+    static void mailbox_multi_read_multi_entry_one_buffer(
+    std::shared_ptr<mailbox<T>> recycler
+);
     
     template <typename T>
     static void change_one_buffer(
