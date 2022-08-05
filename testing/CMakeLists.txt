@@ -19,11 +19,15 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/..
 )
 
+# Make ${sources} variable
+file(GLOB_RECURSE sources
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/*.cpp)
+
 # Use GoogleTest
 enable_testing()
 add_executable(
   google_test
-  google_test.cpp
+  ${sources}
 )
 target_link_libraries(
   google_test

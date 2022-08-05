@@ -14,17 +14,9 @@
     << "Unexpected " name "."
 
 template <typename T>
-std::string t2string(T t) {
-    return std::to_string(t);
-}
-
-template <> std::string t2string<std::complex<float>>(std::complex<float> t) {
-    return "(" + std::to_string(t.real()) + ", " + std::to_string(t.imag()) + "i)";
-}
-
 void unit_test::null_buffer_ptr() {
     //test create, that it's null
-    auto s = buffer_ptr<int>();
+    auto s = buffer_ptr<T>();
     EXPECT_FALSE(s) << "Null buffer pointer is not null";
     
     /* Use Counts cannot be used right now because the shared_ptr compiler 

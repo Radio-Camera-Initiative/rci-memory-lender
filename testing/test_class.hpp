@@ -11,6 +11,7 @@
 struct unit_test {
     unit_test() {}
 
+    template <typename T>
     static void null_buffer_ptr();
 
     template <typename T>
@@ -149,9 +150,6 @@ struct unit_test {
         static void thread_take_and_release(
             std::shared_ptr<library<T>> recycler
         );
-
-        
-
 
 };
 
