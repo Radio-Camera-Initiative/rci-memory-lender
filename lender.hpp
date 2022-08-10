@@ -220,7 +220,7 @@ class mailbox : public recycle_memory<T> {
         // Key of time integration, value of custom struct
         std::unordered_map<int, std::shared_ptr<map_value>> box;
         std::mutex box_lock;
-        std::mutex box_cv;
+        std::condition_variable box_cv;
 
         bool contains_key(int idx);
 

@@ -368,3 +368,19 @@ TEST(MailboxDuplicates, FComplexSetBufferArray) {
     mail_test::set_buffer_ptr_array<fcomplex>(r3);
     // TODO: buffer array here is 2 times longer
 }
+
+TEST(MailboxThreaded, IntWaitSingleEntry) {
+    int max = 2;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<int>> r3 = 
+        std::make_shared<mailbox<int>>(shape, max); 
+    mail_test::wait_read_single_entry<int>(r3, 9);
+}
+
+TEST(MailboxThreaded, IntWaitMultiEntry) {
+    int max = 2;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<int>> r3 = 
+        std::make_shared<mailbox<int>>(shape, max); 
+    mail_test::wait_read_multi_entry<int>(r3, 9);
+}

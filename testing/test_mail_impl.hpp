@@ -496,3 +496,111 @@ void mail_test::set_buffer_ptr_array (
         UnexpectedEq(buffer[idx], i, "array value");
     }
 }
+
+template <typename T>
+void mail_test::wait_for_mail (
+    std::shared_ptr<mailbox<T>> recycler,
+    std::shared_ptr<std::condition_variable> cv,
+    bool &waiting_unsafe,
+    int key,
+    T data
+) {
+    // try and take. make sure key is not made yet
+    EXPECT_FALSE(recycler->contains_key(10));
+
+    // check thread is waiting
+    waiting_unsafe = true;
+    cv->notify_all();
+    auto b = recycler->operate(key);
+
+    // check expected data value
+    UnexpectedEq(*b, data, "buffer value");
+
+    // TODO: check use_count 1 or 2 by whether mailbox is still full
+    // (if the last one check that the key doesnt exist)
+    EXPECT_FALSE(recycler->contains_key(10));
+    UnexpectedEq(b.use_count(), 2, "reference count");
+    waiting_unsafe = false;
+    
+}
+
+template <typename T>
+void mail_test::wait_read_single_entry (
+    std::shared_ptr<mailbox<T>> recycler,
+    T val
+) {
+    bool waiting_unsafe = false;
+    std::shared_ptr<std::condition_variable> cv = 
+        std::make_shared<std::condition_variable>();
+    std::mutex m;
+
+    std::thread check(wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
+
+    std::unique_lock<std::mutex> lk(m);
+    while(!waiting_unsafe) {
+        cv->wait(lk);
+    }
+
+    ASSERT_TRUE(waiting_unsafe) <<
+        "Thread did not wait for buffer to be available";
+
+    buffer_ptr<T> p = recycler->fill();
+    UnexpectedEq(p.use_count(), 1, "reference count");
+    EXPECT_FALSE(recycler->contains_key(10));
+    EXPECT_FALSE(recycler->contains_key(7));
+    EXPECT_FALSE(recycler->contains_key(45));
+    
+    *p = val;
+
+    recycler->queue(10, p); // no time to check if it contains
+    UnexpectedEq(p.use_count(), 2, "reference count");
+
+    check.join();
+
+    EXPECT_FALSE(waiting_unsafe) <<
+        "Thread did not end and join correctly";
+}
+
+template <typename T>
+void mail_test::wait_read_multi_entry (
+    std::shared_ptr<mailbox<T>> recycler,
+    T val
+) {
+    bool waiting_unsafe = false;
+    std::shared_ptr<std::condition_variable> cv = 
+        std::make_shared<std::condition_variable>();
+    std::mutex m;
+
+    std::thread check(wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
+
+    std::unique_lock<std::mutex> lk(m);
+    while(!waiting_unsafe) {
+        cv->wait(lk);
+    }
+
+    ASSERT_TRUE(waiting_unsafe) <<
+        "Thread did not wait for buffer to be available";
+
+    buffer_ptr<T> p = recycler->fill();
+    UnexpectedEq(p.use_count(), 1, "reference count");
+    EXPECT_FALSE(recycler->contains_key(10));
+    EXPECT_FALSE(recycler->contains_key(7));
+    EXPECT_FALSE(recycler->contains_key(45));
+    buffer_ptr<T> f = recycler->fill();
+    UnexpectedEq(f.use_count(), 1, "reference count");
+    recycler->queue(7, f);
+    recycler->queue(45, f);
+    EXPECT_TRUE(recycler->contains_key(7));
+    EXPECT_TRUE(recycler->contains_key(45));
+    UnexpectedEq(f.use_count(), 3, "reference count");
+    
+    *p = val;
+
+    recycler->queue(10, p); // no time to check if it contains
+    UnexpectedEq(p.use_count(), 2, "reference count");
+
+    check.join();
+
+    EXPECT_FALSE(waiting_unsafe) <<
+        "Thread did not end and join correctly";
+}

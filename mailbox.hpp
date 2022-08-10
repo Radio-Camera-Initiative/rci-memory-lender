@@ -51,8 +51,8 @@ void mailbox<T>::queue (int key, buffer_ptr<T> ptr) {
         // need to take mutex and inform cd
         std::unique_lock<std::mutex> lock(box[key]->val_lock);
         box[key]->value = ptr;
-        lock.unlock();
-        box[key]->val_cd.notify_one();
+        box[key]->count = max_read;
+        box_cv.notify_one();
 
     } else {
         std::shared_ptr<map_value> val = std::make_shared<map_value>();
@@ -86,13 +86,17 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
     } else {
         std::shared_ptr<map_value> val = std::make_shared<map_value>();
         std::unique_lock<std::mutex> lock(val->val_lock);
-
         val->value = NULL;
         // val.count is initialized with the writer
 
+        box.emplace(key, val);
+
+        lock.unlock();
         while(!val->value){
-            val->val_cd.wait(lock);
+            box_cv.wait(guard);
         }
+        std::unique_lock<std::mutex> lock1(val->val_lock);
+
         val->count--;
         buffer_ptr<T> v = val->value;
         if (val->count == 0) {
