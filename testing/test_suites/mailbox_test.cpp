@@ -384,3 +384,27 @@ TEST(MailboxThreaded, IntWaitMultiEntry) {
         std::make_shared<mailbox<int>>(shape, max); 
     mail_test::wait_read_multi_entry<int>(r3, 9);
 }
+
+TEST(MailboxThreaded, IntMultiWaitSingleEntry) {
+    int max = 2;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<int>> r3 = 
+        std::make_shared<mailbox<int>>(shape, max, 2); 
+    mail_test::multi_wait_read_single_entry<int>(r3, 9);
+}
+
+TEST(MailboxThreaded, IntMultiWaitMultiEntry) {
+    int max = 2;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<int>> r3 = 
+        std::make_shared<mailbox<int>>(shape, max, 2); 
+    mail_test::multi_wait_read_multi_entry<int>(r3, 9);
+}
+
+TEST(MailboxThreaded, IntMultiWaitDiffEntry) {
+    int max = 3;
+    std::vector<size_t> shape = std::vector<size_t>(1, 1);
+    std::shared_ptr<mailbox<int>> r3 = 
+        std::make_shared<mailbox<int>>(shape, max); 
+    mail_test::multi_wait_read_diff_entry<int>(r3, 9);
+}

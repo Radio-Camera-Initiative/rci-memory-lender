@@ -103,9 +103,35 @@ struct mail_test {
         T val
     );
 
+    template <typename T>
+    static void multi_wait_read_single_entry (
+        std::shared_ptr<mailbox<T>> recycler,
+        T val
+    );
+
+    template <typename T>
+    static void multi_wait_read_multi_entry (
+        std::shared_ptr<mailbox<T>> recycler,
+        T val
+    );
+
+    template <typename T>
+    static void multi_wait_read_diff_entry (
+        std::shared_ptr<mailbox<T>> recycler,
+        T val
+    );
+
     private:
         template <typename T>
         static void wait_for_mail (
+            std::shared_ptr<mailbox<T>> recycler,
+            std::shared_ptr<std::condition_variable> cv,
+            bool &waiting_unsafe,
+            int key,
+            T data
+        );
+        template <typename T>
+        static void multi_wait_for_mail (
             std::shared_ptr<mailbox<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
             bool &waiting_unsafe,

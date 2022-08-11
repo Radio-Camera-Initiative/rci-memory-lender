@@ -71,16 +71,25 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
     // if no, make new entry and sleep
     std::unique_lock<std::mutex> guard(box_lock);
 
-    if (contains_key(key)) {
-        std::cout << "contains" << std::endl;
+    if (contains_key(key)) { // TODO: the val could still be null
         // need to take mutex and inform cd
         std::unique_lock<std::mutex> lock(box[key]->val_lock);
+        if (!box[key]->value) {
+            // IF the value isn't yet set, we still have to wait
+            lock.unlock();
+            while(!box[key]->value){
+                box_cv.wait(guard);
+            }
+            std::unique_lock<std::mutex> lock1(box[key]->val_lock);
+        }
         box[key]->count--;
         buffer_ptr<T> v = box[key]->value;
         if (box[key]->count == 0) {
             box.erase(key);
         }
         // do I unlock here (if more than 1 count)
+        // must notify in case other people are waiting
+        box_cv.notify_one();
         return v;
 
     } else {
@@ -103,6 +112,7 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
             box.erase(key);
         }
         // do I unlock here?
+        box_cv.notify_one();
         return v;
     }
 }
