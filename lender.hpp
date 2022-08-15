@@ -84,7 +84,7 @@ class buffer_ptr {
 
         operator bool() const noexcept;
         
-        buffer_ptr<T>& operator=(nullptr_t) noexcept;
+        buffer_ptr<T>& operator=(std::nullptr_t) noexcept;
 
         /* Give the raw pointer that is being managed
          * NOTE: the memory itself will still be managed by the recycler, 
@@ -97,6 +97,8 @@ class buffer_ptr {
         auto poison_pill() -> buffer_ptr<T>;
 
         auto kill() -> bool;
+
+        void reset();
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
