@@ -7,239 +7,68 @@
 typedef std::complex<float> fcomplex;
 using namespace std::complex_literals;
 
-TEST(MailboxDuplicates, IntMakeMailbox) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    mail_test::make_mailbox<int>(shape, max);
+template <typename T>
+class MailboxTest : public testing::Test {
+    protected:
+        void SetUp() override {
+            max = 3;
+            shape = std::vector<size_t>(1, 1);
+            mailbox_1 = std::make_shared<mailbox<T>>(shape, max);
+            mailbox_2 = std::make_shared<mailbox<T>>(shape, max, 2);
+            mailbox_3 = std::make_shared<mailbox<T>>(shape, max, 3);
+        }
+
+        // void TearDown() override {}
+
+    public:
+        int max;
+        std::vector<size_t> shape;
+        std::shared_ptr<mailbox<T>> mailbox_1 = nullptr;
+        std::shared_ptr<mailbox<T>> mailbox_2 = nullptr;
+        std::shared_ptr<mailbox<T>> mailbox_3 = nullptr;
+};
+
+using Primitives = ::testing::Types<int, float, fcomplex>;
+TYPED_TEST_SUITE(MailboxTest, Primitives);
+
+TYPED_TEST(MailboxTest, MakeMailbox) {
+    mail_test::make_mailbox<TypeParam>(this->shape, this->max);
 }
 
-TEST(MailboxDuplicates, IntQueueOneBuffer) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max); 
-    mail_test::mailbox_queue_one<int>(r3);
+TYPED_TEST(MailboxTest, QueueOneBuffer) {
+    mail_test::mailbox_queue_one<TypeParam>(this->mailbox_1);
 }
 
-TEST(MailboxDuplicates, IntQueueMultipleBuffer) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max); 
-    mail_test::mailbox_queue_multi_buffer<int>(r3);
+TYPED_TEST(MailboxTest, QueueMultipleBuffer) { 
+    mail_test::mailbox_queue_multi_buffer<TypeParam>(this->mailbox_1);
 }
 
-TEST(MailboxDuplicates, IntMultiQueueOneBuffer) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max); 
-    mail_test::mailbox_multi_queue_one_buffer<int>(r3);
+TYPED_TEST(MailboxTest, MultiQueueOneBuffer) {
+    mail_test::mailbox_multi_queue_one_buffer<TypeParam>(this->mailbox_1);
 }
 
-TEST(MailboxDuplicates, IntSingleEntrySingleRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max); 
-    mail_test::mailbox_read_single_entry_map<int>(r3);
+TYPED_TEST(MailboxTest, SingleEntrySingleRead) {
+    mail_test::mailbox_read_single_entry_map<TypeParam>(this->mailbox_1);
 }
 
-TEST(MailboxDuplicates, IntMultiEntrySingleRead) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max); 
-    mail_test::mailbox_read_multi_entry_map<int>(r3);
+TYPED_TEST(MailboxTest, MultiEntrySingleRead) {
+    mail_test::mailbox_read_multi_entry_map<TypeParam>(this->mailbox_1);
 }
 
-TEST(MailboxDuplicates, IntMultiEntrySingleBufferRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max); 
-    mail_test::mailbox_read_multi_entry_one_buffer<int>(r3);
+TYPED_TEST(MailboxTest, MultiEntrySingleBufferRead) {
+    mail_test::mailbox_read_multi_entry_one_buffer<TypeParam>(this->mailbox_1);
 }
 
-TEST(MailboxDuplicates, IntSingleEntryMultiRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max, 2); 
-    mail_test::mailbox_multi_read_single_entry_map<int>(r3);
+TYPED_TEST(MailboxTest, SingleEntryMultiRead) {
+    mail_test::mailbox_multi_read_single_entry_map<TypeParam>(this->mailbox_2);
 }
 
-TEST(MailboxDuplicates, IntMultiEntryMultiRead) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max, 3); 
-    mail_test::mailbox_multi_read_multi_entry_map<int>(r3);
+TYPED_TEST(MailboxTest, MultiEntryMultiRead) {
+    mail_test::mailbox_multi_read_multi_entry_map<TypeParam>(this->mailbox_3);
 }
 
-TEST(MailboxDuplicates, IntMultiEntrySingleBufferMultiRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<int>> r3 = 
-        std::make_shared<mailbox<int>>(shape, max, 3); 
-    mail_test::mailbox_multi_read_multi_entry_one_buffer<int>(r3);
-}
-
-TEST(MailboxDuplicates, FloatMakeMailbox) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    mail_test::make_mailbox<float>(shape, max);
-}
-
-TEST(MailboxDuplicates, FloatQueueOneBuffer) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max); 
-    mail_test::mailbox_queue_one<float>(r3);
-}
-
-TEST(MailboxDuplicates, FloatQueueMultipleBuffer) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max); 
-    mail_test::mailbox_queue_multi_buffer<float>(r3);
-}
-
-TEST(MailboxDuplicates, FloatMultiQueueOneBuffer) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max); 
-    mail_test::mailbox_multi_queue_one_buffer<float>(r3);
-}
-
-TEST(MailboxDuplicates, FloatSingleEntrySingleRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max); 
-    mail_test::mailbox_read_single_entry_map<float>(r3);
-}
-
-TEST(MailboxDuplicates, FloatMultiEntrySingleRead) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max); 
-    mail_test::mailbox_read_multi_entry_map<float>(r3);
-}
-
-TEST(MailboxDuplicates, FloatMultiEntrySingleBufferRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max); 
-    mail_test::mailbox_read_multi_entry_one_buffer<float>(r3);
-}
-
-TEST(MailboxDuplicates, FloatSingleEntryMultiRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max, 2); 
-    mail_test::mailbox_multi_read_single_entry_map<float>(r3);
-}
-
-TEST(MailboxDuplicates, FloatMultiEntryMultiRead) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max, 3); 
-    mail_test::mailbox_multi_read_multi_entry_map<float>(r3);
-}
-
-TEST(MailboxDuplicates, FloatMultiEntrySingleBufferMultiRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<float>> r3 = 
-        std::make_shared<mailbox<float>>(shape, max, 3); 
-    mail_test::mailbox_multi_read_multi_entry_one_buffer<float>(r3);
-}
-
-
-TEST(MailboxDuplicates, FComplexMakeMailbox) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    mail_test::make_mailbox<fcomplex>(shape, max);
-}
-
-TEST(MailboxDuplicates, FComplexQueueOneBuffer) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max); 
-    mail_test::mailbox_queue_one<fcomplex>(r3);
-}
-
-TEST(MailboxDuplicates, FComplexQueueMultipleBuffer) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max); 
-    mail_test::mailbox_queue_multi_buffer<fcomplex>(r3);
-}
-
-TEST(MailboxDuplicates, FComplexMultiQueueOneBuffer) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max); 
-    mail_test::mailbox_multi_queue_one_buffer<fcomplex>(r3);
-}
-
-TEST(MailboxDuplicates, FComplexSingleEntrySingleRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max); 
-    mail_test::mailbox_read_single_entry_map<fcomplex>(r3);
-}
-
-TEST(MailboxDuplicates, FComplexMultiEntrySingleRead) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max); 
-    mail_test::mailbox_read_multi_entry_map<fcomplex>(r3);
-}
-
-TEST(MailboxDuplicates, FComplexMultiEntrySingleBufferRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max); 
-    mail_test::mailbox_read_multi_entry_one_buffer<fcomplex>(r3);
-}
-
-TEST(MailboxDuplicates, FComplexSingleEntryMultiRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max, 2); 
-    mail_test::mailbox_multi_read_single_entry_map<fcomplex>(r3);
-}
-
-TEST(MailboxDuplicates, FComplexMultiEntryMultiRead) {
-    int max = 5;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max, 3); 
-    mail_test::mailbox_multi_read_multi_entry_map<fcomplex>(r3);
-}
-
-TEST(MailboxDuplicates, FComplexMultiEntrySingleBufferMultiRead) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<mailbox<fcomplex>> r3 = 
-        std::make_shared<mailbox<fcomplex>>(shape, max, 3); 
-    mail_test::mailbox_multi_read_multi_entry_one_buffer<fcomplex>(r3);
+TYPED_TEST(MailboxTest, MultiEntrySingleBufferMultiRead) {
+    mail_test::mailbox_multi_read_multi_entry_one_buffer<TypeParam>(this->mailbox_3);
 }
 
 TEST(MailboxThreaded, IntWaitSingleEntry) {
