@@ -131,18 +131,21 @@ struct unit_test {
         static void thread_wait_fill(
             std::shared_ptr<library<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
             bool &waiting_unsafe
         );
         template <typename T>
         static void thread_wait_queue(
             std::shared_ptr<library<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
             bool &waiting_unsafe
         );
         template <typename T>
         static void thread_watcher(
             buffer_ptr<T> p,
             std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
             bool &operating_unsafe,
             int &check_ref
         );

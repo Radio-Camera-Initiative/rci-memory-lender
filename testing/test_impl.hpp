@@ -395,15 +395,23 @@ template <typename T>
 void unit_test::thread_wait_fill(
     std::shared_ptr<library<T>> recycler,
     std::shared_ptr<std::condition_variable> cv,
+    std::shared_ptr<std::mutex> m,
     bool &waiting_unsafe
 ) {
-    waiting_unsafe = true;
-    cv->notify_one();
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        waiting_unsafe = true;
+        cv->notify_one();
+    }
     auto b = recycler->fill();
 
     UnexpectedEq(b.use_count(), 1, "reference count");
 
-    waiting_unsafe = false;
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        waiting_unsafe = false;
+        cv->notify_one();
+    }
 }
 
 // exercise waiting for a buffer to become free for filling
@@ -418,19 +426,18 @@ void unit_test::wait_on_fill_threaded(
 // -> check that the last one waits
     bool waiting_unsafe = false;
     std::thread check;
+    std::shared_ptr<std::condition_variable> cv =
+        std::make_shared<std::condition_variable>();
+    auto m = std::make_shared<std::mutex>();
     {
         auto b = recycler->fill();
-
-        std::shared_ptr<std::condition_variable> cv = 
-            std::make_shared<std::condition_variable>();
-        std::mutex m;
 
         UnexpectedEq(b.use_count(), 1, "reference count");
 
         check = std::thread
-            (thread_wait_fill<T>, recycler, cv, std::ref(waiting_unsafe));
+            (thread_wait_fill<T>, recycler, cv, m, std::ref(waiting_unsafe));
 
-        std::unique_lock<std::mutex> lk(m);
+        std::unique_lock<std::mutex> lk(*m);
         while(!waiting_unsafe) {
             cv->wait(lk);
         }
@@ -445,9 +452,12 @@ void unit_test::wait_on_fill_threaded(
 
         UnexpectedEq(b.use_count(), 1, "reference count");
     }
-
-    check.join();
-
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        while (waiting_unsafe)
+            cv->wait(lk);
+        check.join();
+    }
     EXPECT_FALSE(waiting_unsafe) <<
         "Thread did not end and join correctly";
 
@@ -458,14 +468,21 @@ template <typename T>
 void unit_test::thread_wait_queue(
     std::shared_ptr<library<T>> recycler,
     std::shared_ptr<std::condition_variable> cv,
+    std::shared_ptr<std::mutex> m,
     bool &waiting_unsafe
 ) {
-    waiting_unsafe = true;
-    cv->notify_all();
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        waiting_unsafe = true;
+        cv->notify_all();
+    }
     auto b = recycler->operate();
     UnexpectedEq(b.use_count(), 1, "reference count");
-    waiting_unsafe = false;
-
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        waiting_unsafe = false;
+        cv->notify_all();
+    }
 }
 
 // exercise waiting for buffer from the operate queue
@@ -482,15 +499,15 @@ void unit_test::buffer_from_empty_queue_threaded(
     bool waiting_unsafe = false;
     std::shared_ptr<std::condition_variable> cv = 
         std::make_shared<std::condition_variable>();
-    std::mutex m;
+    auto m = std::make_shared<std::mutex>();
 
-    std::thread check(thread_wait_queue<T>, recycler, cv, std::ref(waiting_unsafe));
-
-    std::unique_lock<std::mutex> lk(m);
-    while(!waiting_unsafe) {
-        cv->wait(lk);
+    std::thread check(thread_wait_queue<T>, recycler, cv, m, std::ref(waiting_unsafe));
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        while(!waiting_unsafe) {
+            cv->wait(lk);
+        }
     }
-
     ASSERT_TRUE(waiting_unsafe) <<
         "Thread did not wait for buffer to be available";
 
@@ -500,9 +517,12 @@ void unit_test::buffer_from_empty_queue_threaded(
         UnexpectedEq(b.use_count(), 1, "reference count");
         recycler->queue(b);
     }
-
-    check.join();
-
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        while (waiting_unsafe)
+            cv->wait(lk);
+        check.join();
+    }
     EXPECT_FALSE(waiting_unsafe) <<
         "Thread did not end and join correctly";
 
@@ -523,7 +543,7 @@ void unit_test::wait_multi_take_from_fill_threaded(
     bool waiting_unsafe = false;
     std::shared_ptr<std::condition_variable> cv = 
         std::make_shared<std::condition_variable>();
-    std::mutex m;
+    auto m = std::make_shared<std::mutex>();
     std::thread check;
 
     {
@@ -540,9 +560,9 @@ void unit_test::wait_multi_take_from_fill_threaded(
         }
 
         check = std::thread
-            (thread_wait_fill<T>, recycler, cv, std::ref(waiting_unsafe));
+            (thread_wait_fill<T>, recycler, cv, m, std::ref(waiting_unsafe));
 
-        std::unique_lock<std::mutex> lk(m);
+        std::unique_lock<std::mutex> lk(*m);
         while(!waiting_unsafe) {
             cv->wait(lk);
         }
@@ -551,8 +571,12 @@ void unit_test::wait_multi_take_from_fill_threaded(
             "Thread did not wait for buffer to be available";
 
     }
-
-    check.join();
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        while (waiting_unsafe)
+            cv->wait(lk);
+        check.join();
+    }
 
     EXPECT_FALSE(waiting_unsafe) <<
         "Thread did not end and join correctly";
@@ -567,12 +591,12 @@ template <typename T>
 void unit_test::thread_watcher(
     buffer_ptr<T> p,
     std::shared_ptr<std::condition_variable> cv,
+    std::shared_ptr<std::mutex> m,
     bool &operating_unsafe,
     int &check_ref
 ) {
-    std::mutex m;
+    std::unique_lock<std::mutex> lk(*m);
     while(operating_unsafe) {
-        std::unique_lock<std::mutex> lk(m);
         cv->wait(lk);
 
         EXPECT_GE(p.use_count(), check_ref) << "Expected " +
@@ -589,21 +613,25 @@ void unit_test::watcher_check_reference_counts(
     int check_ref = 0;
     std::shared_ptr<std::condition_variable> cv = 
         std::make_shared<std::condition_variable>();
+    auto m = std::make_shared<std::mutex>();
     std::thread watcher;
 
     {
         auto p = recycler->fill();
         watcher = std::thread(
-            thread_watcher<T>, 
-            p, 
-            cv, 
-            std::ref(operating_unsafe), 
+            thread_watcher<T>,
+            p,
+            cv,
+            m,
+            std::ref(operating_unsafe),
             std::ref(check_ref)
         );
-        check_ref = 2;
-        // notify
-        cv->notify_one();
-
+        {
+            std::unique_lock<std::mutex> lk(*m);
+            check_ref = 2;
+            // notify
+            cv->notify_one();
+        }
         // now queue
         recycler->queue(p);
 
@@ -613,7 +641,12 @@ void unit_test::watcher_check_reference_counts(
     auto p = recycler->operate();
     cv->notify_one();
 
-    operating_unsafe = false;
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        operating_unsafe = false;
+        cv->notify_one();
+    }
+
     watcher.join();
 }
 
