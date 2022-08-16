@@ -39,8 +39,8 @@ void unit_test::buffer_ptr_null_fill(
     EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
     UnexpectedEq(s.use_count(), 1, "reference count");
 
-    for (int i = 0; i < shape.size(); i++) {
-        UnexpectedEq(s->shape[i], shape[i], "shape");
+    for (std::size_t i = 0; i < shape.size(); i++) {
+        UnexpectedEq(recycler->shape()[i], shape[i], "shape");
     }
 
     UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
@@ -56,8 +56,8 @@ void unit_test::buffer_ptr_fill_null(
     EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
     UnexpectedEq(s.use_count(), 1, "reference count");
 
-    for (int i = 0; i < shape.size(); i++) {
-        UnexpectedEq(s->shape[i], shape[i], "shape");
+    for (std::size_t i = 0; i < shape.size(); i++) {
+        UnexpectedEq(recycler->shape()[i], shape[i], "shape");
     }
 
     UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
@@ -104,8 +104,9 @@ void unit_test::take_one_buffer_from_fill(
     // -> check shape, number of free (max - 1), num shared_ptr refs
     buffer_ptr<T> p = recycler->fill();
 
-    for (int i = 0; i < shape.size(); i++) {
-        UnexpectedEq(p->shape[i], shape[i], "shape");
+    auto rc_shape = recycler->shape();
+    for (size_t i = 0; i < rc_shape.size(); i++) {
+        UnexpectedEq(rc_shape[i], shape[i], "shape");
     }
 
     UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
@@ -234,7 +235,7 @@ void unit_test::set_buffer_ptr_array (
     std::shared_ptr<library<T>> recycler
 ) {
     auto buffer = recycler->fill();
-    auto shape = buffer->shape;
+    auto shape = recycler->shape();
 
     size_t size = 1;
     for (auto iter = shape.begin(); iter != shape.end(); iter++) {
@@ -243,8 +244,8 @@ void unit_test::set_buffer_ptr_array (
 
     // fill each index with its number
     T i = 0;
-    T one = 1;
-    for (size_t idx = 0; idx < size; idx++, i+one) {
+    // T one = 1;
+    for (size_t idx = 0; idx < size; idx++ /*, i+one*/) {
         buffer[idx] = i;
         UnexpectedEq(buffer[idx], i, "array value");
     }
@@ -301,13 +302,14 @@ void unit_test::dec_operate_queue(
 /* Thread safety/ concurrency tests */
 
 template <typename T>
-void unit_test::thread_read(buffer_ptr<T> b, T data) {
+void unit_test::thread_read(std::shared_ptr<std::mutex> mtx, buffer_ptr<T> b, T data) {
     EXPECT_GE(b.use_count(), 2) <<
         "Unexpected reference count. Expected at least 2 and got " +
         std::to_string(b.use_count());
 
     UnexpectedEq(*b, data, "value");
-
+    mtx->lock();
+    mtx->unlock();
 }
 
 // change buffer from main thread and check that same data is read from another
@@ -324,10 +326,13 @@ void unit_test::change_buffer_threaded(
     UnexpectedEq(b.use_count(), 1, "reference count");
     UnexpectedEq(*b, data, "value");
 
-    std::thread check(thread_read<T>, b, data);
-
-    check.join();
-
+    auto mtx = std::make_shared<std::mutex>();
+    {
+        std::unique_lock<std::mutex> lk(*mtx);
+        std::thread check(thread_read<T>, mtx, b, data);
+        lk.unlock();
+        check.join();
+    }
     UnexpectedEq(b.use_count(), 1, "reference count");
 }
 
@@ -346,47 +351,56 @@ void unit_test::multi_change_buffer_threaded(
     UnexpectedEq(b.use_count(), 1, "reference count");
     UnexpectedEq(*b, data[0], "value");
 
-    std::thread check_one(thread_read<T>, b, data[0]);
-    std::thread check_two(thread_read<T>, b, data[0]);
+    auto mtx = std::make_shared<std::mutex>();
+    {
+        std::unique_lock<std::mutex> l(*mtx);
+        std::thread check_one(thread_read<T>, mtx, b, data[0]);
+        std::thread check_two(thread_read<T>, mtx, b, data[0]);
 
-    EXPECT_GE(b.use_count(), 2) <<
-        "Unexpected reference count. Expected at least 2 and got " +
-        std::to_string(b.use_count());
-
-    check_one.join();
-    check_two.join();
+        EXPECT_GE(b.use_count(), 2) <<
+            "Unexpected reference count. Expected at least 2 and got " +
+            std::to_string(b.use_count());
+        l.unlock();
+        check_one.join();
+        check_two.join();
+    }
 
     UnexpectedEq(b.use_count(), 1, "reference count");
 
     *b = data[1];
     UnexpectedEq(*b, data[1], "value");
+    {
+        std::unique_lock<std::mutex> l(*mtx);
+        std::thread check_three(thread_read<T>, mtx, b, data[1]);
+        std::thread check_four(thread_read<T>, mtx, b, data[1]);
 
-    std::thread check_three(thread_read<T>, b, data[1]);
-    std::thread check_four(thread_read<T>, b, data[1]);
-
-    EXPECT_GE(b.use_count(), 2) <<
-        "Unexpected reference count. Expected at least 2 and got " +
-        std::to_string(b.use_count());
-
-    check_three.join();
-    check_four.join();
+        EXPECT_GE(b.use_count(), 2) <<
+            "Unexpected reference count. Expected at least 2 and got " +
+            std::to_string(b.use_count());
+        l.unlock();
+        check_three.join();
+        check_four.join();
+    }
 
     UnexpectedEq(b.use_count(), 1, "reference count");
 
     *b = data[2];
     UnexpectedEq(*b, data[2], "value");
-    
-    std::thread check_five(thread_read<T>, b, data[2]);
-    std::thread check_six(thread_read<T>, b, data[2]);
-    std::thread check_seven(thread_read<T>, b, data[2]);
 
-    EXPECT_GE(b.use_count(), 2) <<
-        "Unexpected reference count. Expected at least 2 and got " +
-        std::to_string(b.use_count());
+    {
+        std::unique_lock<std::mutex> l(*mtx);
+        std::thread check_five(thread_read<T>, mtx, b, data[2]);
+        std::thread check_six(thread_read<T>, mtx, b, data[2]);
+        std::thread check_seven(thread_read<T>, mtx, b, data[2]);
 
-    check_five.join();
-    check_six.join();
-    check_seven.join();
+        EXPECT_GE(b.use_count(), 2) <<
+            "Unexpected reference count. Expected at least 2 and got " +
+            std::to_string(b.use_count());
+        l.unlock();
+        check_five.join();
+        check_six.join();
+        check_seven.join();
+    }
 
     UnexpectedEq(b.use_count(), 1, "reference count");
 }
@@ -423,6 +437,7 @@ void unit_test::wait_on_fill_threaded(
     int max,
     T data
 ) {
+    assert(max == 1);
 // -> check that the last one waits
     bool waiting_unsafe = false;
     std::thread check;
@@ -434,18 +449,15 @@ void unit_test::wait_on_fill_threaded(
 
         UnexpectedEq(b.use_count(), 1, "reference count");
 
+        std::unique_lock<std::mutex> lk(*m);
         check = std::thread
             (thread_wait_fill<T>, recycler, cv, m, std::ref(waiting_unsafe));
-
-        std::unique_lock<std::mutex> lk(*m);
         while(!waiting_unsafe) {
             cv->wait(lk);
         }
 
         *b = data;
         UnexpectedEq(*b, data, "value");
-
-        UnexpectedEq(b.use_count(), 1, "reference count");
 
         ASSERT_TRUE(waiting_unsafe) <<
             "Thread did not wait for buffer to be available";
@@ -456,8 +468,8 @@ void unit_test::wait_on_fill_threaded(
         std::unique_lock<std::mutex> lk(*m);
         while (waiting_unsafe)
             cv->wait(lk);
-        check.join();
     }
+    check.join();
     EXPECT_FALSE(waiting_unsafe) <<
         "Thread did not end and join correctly";
 

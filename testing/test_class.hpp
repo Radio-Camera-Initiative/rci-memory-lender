@@ -126,7 +126,7 @@ struct unit_test {
 
     private:
         template <typename T>
-        static void thread_read(buffer_ptr<T> b, T data);
+        static void thread_read(std::shared_ptr<std::mutex> m, buffer_ptr<T> b, T data);
         template <typename T>
         static void thread_wait_fill(
             std::shared_ptr<library<T>> recycler,

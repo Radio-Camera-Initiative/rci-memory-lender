@@ -11,33 +11,10 @@
 
 #include "lender.hpp"
 
-template <typename T>
-reuseable_buffer<T>::reuseable_buffer(T* p, recycle_memory<T>& r) : recycle(r) {
-    shape = recycle.shape;
-    ptr = p;
-}
-
-template <typename T>
-reuseable_buffer<T>::~reuseable_buffer() {
-    recycle.return_memory(ptr);
-}
-
-template <typename T>
-auto reuseable_buffer<T>::operator[](unsigned int i) const noexcept -> T& {
-    // TODO: what to check here when indexing?
-    return *(ptr + i);
-}
-
-template <typename T>
-buffer_ptr<T>::buffer_ptr() {
-    sp = std::shared_ptr<reuseable_buffer<T>>();
-    size = 0;
-    kill_threads = false;
-}
 
 template <typename T>
 buffer_ptr<T>::buffer_ptr(T* memory, recycle_memory<T>& recycler) {
-    sp = std::make_shared<reuseable_buffer<T>>(memory, recycler);
+    sp = std::shared_ptr<T>(memory, buffer_deleter::return_to_recycler(recycler));
     size = recycler.size;
     kill_threads = false;
 }
@@ -49,19 +26,14 @@ auto buffer_ptr<T>::use_count() -> int {
 
 template <typename T>
 auto buffer_ptr<T>::operator*() const noexcept -> T& {
-    return *(sp->ptr);
-}
-
-template <typename T>
-auto buffer_ptr<T>::operator->() const noexcept -> reuseable_buffer<T>* {
-    return sp.get();
+    return *sp.get();
 }
 
 template <typename T>
 auto buffer_ptr<T>::operator[](int i) const noexcept -> T&{
     assert(i >= 0);
     assert(static_cast<size_t>(i) < size);
-    return *(sp->ptr + i);
+    return sp.get()[i];
 }
 
 template <typename T>
@@ -69,11 +41,11 @@ buffer_ptr<T>::operator bool() const noexcept{
     return sp ? true : false;
 }
 
-/* The buffer_ptr doesn't necessarily hold a nullptr, 
+/* The buffer_ptr doesn't necessarily hold a nullptr,
  * it is just setting shared_ptr to empty (using the reset method)
- * 
- * Side Note: As far as I can find 
- * there is no real way for a shared_ptr to hold a null_ptr properly anyway, 
+ *
+ * Side Note: As far as I can find
+ * there is no real way for a shared_ptr to hold a null_ptr properly anyway,
  * they just tend to be empty.
  */
 template <typename T>
@@ -84,8 +56,7 @@ buffer_ptr<T>& buffer_ptr<T>::operator=(std::nullptr_t) noexcept {
 
 template <typename T>
 auto buffer_ptr<T>::get() const noexcept -> T* {
-    assert(sp);
-    return sp->ptr;
+    return sp.get();
 }
 
 template <typename T>

@@ -29,22 +29,12 @@ class library;
 template <typename T>
 class buffer_ptr;
 
-template <typename T>
-class reuseable_buffer {
-    friend class buffer_ptr<T>;
-    friend class unit_test;
-    
-    private:
-        recycle_memory<T>& recycle;
-        // if this was shared_ptr, would memory be deleted at destruction?
-        T* ptr; 
-
-    public: 
-        std::vector<size_t> shape;
-
-        reuseable_buffer(T* p, recycle_memory<T>& r);
-        ~reuseable_buffer();
-        auto operator[](unsigned int i) const noexcept -> T&;
+struct buffer_deleter {
+    template <typename T>
+    static auto
+    return_to_recycler(recycle_memory<T>& recycle) {
+        return [&](T* ptr){ recycle.return_memory(ptr); };
+    }
 };
 
 /* wrapper object for shared_ptrs */
@@ -54,10 +44,10 @@ class buffer_ptr {
     friend class library<T>;
 
     private:
-        std::shared_ptr<reuseable_buffer<T>> sp;
+        std::shared_ptr<T> sp;
         bool kill_threads;
 
-        buffer_ptr();
+        buffer_ptr() = default;
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler);
         /* Give number of shared pointers that have the pointer reference.
@@ -73,9 +63,6 @@ class buffer_ptr {
          * Will give an int to read from and write to
          */
         auto operator*() const noexcept -> T&;
-        /* Give access to any public functions/elements in reuseable_buffer<T> 
-         */
-        auto operator->() const noexcept -> reuseable_buffer<T>*;
         /* Give access to an element in the array of the pointer
          * Checks that the index is more than zero
          * Checks that the index is within the size of the array
@@ -108,12 +95,14 @@ class buffer_ptr {
  */
 template <typename T>
 class recycle_memory {
-    friend struct reuseable_buffer<T>;
+    friend class buffer_deleter;
     friend class buffer_ptr<T>;
     friend class unit_test;
 
+    // has a vector of recycle_memory struct pointers.
+    private:
+        const std::vector<size_t> shp;
     protected:
-        const std::vector<size_t> shape;
         size_t size;
         std::deque<T*> free_q;
         std::mutex free_mutex;
@@ -155,6 +144,8 @@ class recycle_memory {
          *       cleaned by OS after the process, this should be fine.
          */
         ~recycle_memory();
+
+        auto shape() const noexcept -> const std::vector<size_t>&;
 
 };
 
