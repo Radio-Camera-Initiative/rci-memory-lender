@@ -103,7 +103,6 @@ class recycle_memory {
     friend class buffer_ptr<T>;
     friend class unit_test;
 
-    // has a vector of recycle_memory struct pointers.
     protected:
         const std::vector<size_t> shape;
         size_t size;
@@ -111,7 +110,7 @@ class recycle_memory {
         std::mutex free_mutex;
         std::condition_variable free_variable;
         #ifndef NDEBUG
-        std::set<T*> pointers;
+            std::set<T*> pointers;
         #endif
 
         void return_memory(T* p);

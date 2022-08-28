@@ -13,10 +13,8 @@
 
 template <typename T>
 library<T>::library(const std::vector<size_t> s, unsigned int max) : 
-    recycle_memory<T>::recycle_memory(s, max) 
-{
-    change_q = std::deque<buffer_ptr<T>>();
-}
+    recycle_memory<T>::recycle_memory(s, max), change_q(std::deque<buffer_ptr<T>>())
+{}
 
 template <typename T>
 auto library<T>::fill() -> buffer_ptr<T> {
@@ -31,16 +29,16 @@ auto library<T>::fill() -> buffer_ptr<T> {
     this->free_q.pop_front();
 
     #ifndef NDEBUG
-    // check there was no changes after free
-    T* f = new T();
-    memset(f, 0xf0, sizeof(T));
-    assert(memcmp(ptr, f, sizeof(T)) == 0);
-    memset(ptr, 0, sizeof(T)*this->size);
+        // check there was no changes after free
+        T* f = new T();
+        memset(f, 0xf0, sizeof(T));
+        assert(memcmp(ptr, f, sizeof(T)) == 0);
+        memset(ptr, 0, sizeof(T)*this->size);
     #endif
 
     // make reuseable_buffer for the buffer
-    auto sp = buffer_ptr<T>(ptr, *this);
-    return sp;
+    auto bp = buffer_ptr<T>(ptr, *this);
+    return bp;
 
 }
 
@@ -48,7 +46,7 @@ template <typename T>
 void library<T>::queue(buffer_ptr<T> ptr) {
     std::unique_lock<std::mutex> guard(change_mutex);
     #ifndef NDEBUG
-    assert(this->pointers.find(ptr.get()) != this->pointers.end());
+        assert(this->pointers.find(ptr.get()) != this->pointers.end());
     #endif
     change_q.push_back(ptr);
     guard.unlock();
