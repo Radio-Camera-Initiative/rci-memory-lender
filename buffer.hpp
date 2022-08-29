@@ -28,6 +28,12 @@ auto reuseable_buffer<T>::operator[](unsigned int i) const noexcept -> T& {
     return *(ptr + i);
 }
 
+template <typename T>
+buffer_ptr<T>::buffer_ptr() {
+    sp = std::shared_ptr<reuseable_buffer<T>>();
+    size = 0;
+    kill_threads = false;
+}
 
 template <typename T>
 buffer_ptr<T>::buffer_ptr(T* memory, recycle_memory<T>& recycler) {
@@ -59,7 +65,26 @@ auto buffer_ptr<T>::operator[](int i) const noexcept -> T&{
 }
 
 template <typename T>
+buffer_ptr<T>::operator bool() const noexcept{
+    return sp ? true : false;
+}
+
+/* The buffer_ptr doesn't necessarily hold a nullptr, 
+ * it is just setting shared_ptr to empty (using the reset method)
+ * 
+ * Side Note: As far as I can find 
+ * there is no real way for a shared_ptr to hold a null_ptr properly anyway, 
+ * they just tend to be empty.
+ */
+template <typename T>
+buffer_ptr<T>& buffer_ptr<T>::operator=(std::nullptr_t) noexcept {
+    this->reset();
+    return *this;
+}
+
+template <typename T>
 auto buffer_ptr<T>::get() const noexcept -> T* {
+    assert(sp);
     return sp->ptr;
 }
 
@@ -72,4 +97,11 @@ auto buffer_ptr<T>::poison_pill() -> buffer_ptr<T>{
 template <typename T>
 auto buffer_ptr<T>::kill() -> bool {
     return kill_threads;
+}
+
+template <typename T>
+void buffer_ptr<T>::reset() {
+    sp.reset();
+    size = 0;
+    kill_threads = false;
 }

@@ -14,12 +14,69 @@
     << "Unexpected " name "."
 
 template <typename T>
-std::string t2string(T t) {
-    return std::to_string(t);
+void unit_test::null_buffer_ptr() {
+    //test create, that it's null
+    auto s = buffer_ptr<T>();
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+    
+    /* Use Counts cannot be used for test verification because the shared_ptr 
+     * compiler implementation and the stdlib definition tend to disagree with 
+     * what the actual counts should be for empty shared_ptrs
+     * https://stackoverflow.com/questions/48885252/c-sharedptr-use-count-for-nullptr
+     */
 }
 
-template <> std::string t2string<std::complex<float>>(std::complex<float> t) {
-    return "(" + std::to_string(t.real()) + ", " + std::to_string(t.imag()) + "i)";
+template <typename T>
+void unit_test::buffer_ptr_null_fill(
+    std::shared_ptr<library<T>> recycler,
+    std::vector<size_t> shape,
+    int max
+) {
+    auto s = buffer_ptr<T>();
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+
+    s = recycler->fill();
+    EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
+    UnexpectedEq(s.use_count(), 1, "reference count");
+
+    for (int i = 0; i < shape.size(); i++) {
+        UnexpectedEq(s->shape[i], shape[i], "shape");
+    }
+
+    UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
+}
+
+template <typename T>
+void unit_test::buffer_ptr_fill_null(
+    std::shared_ptr<library<T>> recycler,
+    std::vector<size_t> shape,
+    int max
+) {
+    auto s = recycler->fill();
+    EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
+    UnexpectedEq(s.use_count(), 1, "reference count");
+
+    for (int i = 0; i < shape.size(); i++) {
+        UnexpectedEq(s->shape[i], shape[i], "shape");
+    }
+
+    UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
+
+    s.reset();
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+
+    UnexpectedEq(recycler->private_free_size(),  max, "number of free buffers");
+
+    s = recycler->fill();
+    EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
+    UnexpectedEq(s.use_count(), 1, "reference count");
+
+    UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
+
+    s = nullptr;
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+
+    UnexpectedEq(recycler->private_free_size(),  max, "number of free buffers");
 }
 
 /* single-threaded tests */
