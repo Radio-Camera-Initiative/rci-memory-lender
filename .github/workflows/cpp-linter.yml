@@ -24,3 +24,4 @@ jobs:
         with:
           style: file
           files-changed-only: false
+          file-annotations: false
