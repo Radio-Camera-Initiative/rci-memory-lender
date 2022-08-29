@@ -14,12 +14,69 @@
     << "Unexpected " name "."
 
 template <typename T>
-std::string t2string(T t) {
-    return std::to_string(t);
+void unit_test::null_buffer_ptr() {
+    //test create, that it's null
+    auto s = buffer_ptr<T>();
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+    
+    /* Use Counts cannot be used for test verification because the shared_ptr 
+     * compiler implementation and the stdlib definition tend to disagree with 
+     * what the actual counts should be for empty shared_ptrs
+     * https://stackoverflow.com/questions/48885252/c-sharedptr-use-count-for-nullptr
+     */
 }
 
-template <> std::string t2string<std::complex<float>>(std::complex<float> t) {
-    return "(" + std::to_string(t.real()) + ", " + std::to_string(t.imag()) + "i)";
+template <typename T>
+void unit_test::buffer_ptr_null_fill(
+    std::shared_ptr<library<T>> recycler,
+    std::vector<size_t> shape,
+    int max
+) {
+    auto s = buffer_ptr<T>();
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+
+    s = recycler->fill();
+    EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
+    UnexpectedEq(s.use_count(), 1, "reference count");
+
+    for (int i = 0; i < shape.size(); i++) {
+        UnexpectedEq(s->shape[i], shape[i], "shape");
+    }
+
+    UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
+}
+
+template <typename T>
+void unit_test::buffer_ptr_fill_null(
+    std::shared_ptr<library<T>> recycler,
+    std::vector<size_t> shape,
+    int max
+) {
+    auto s = recycler->fill();
+    EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
+    UnexpectedEq(s.use_count(), 1, "reference count");
+
+    for (int i = 0; i < shape.size(); i++) {
+        UnexpectedEq(s->shape[i], shape[i], "shape");
+    }
+
+    UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
+
+    s.reset();
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+
+    UnexpectedEq(recycler->private_free_size(),  max, "number of free buffers");
+
+    s = recycler->fill();
+    EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
+    UnexpectedEq(s.use_count(), 1, "reference count");
+
+    UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
+
+    s = nullptr;
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+
+    UnexpectedEq(recycler->private_free_size(),  max, "number of free buffers");
 }
 
 /* single-threaded tests */
@@ -31,7 +88,7 @@ template <> std::string t2string<std::complex<float>>(std::complex<float> t) {
 template <typename T>
 void unit_test::make_recycle_memory(std::vector<size_t> shape, int max) {
 // -> check correct number of free
-    recycle_memory<T> r(shape, max);
+    library<T> r(shape, max); // TODO: should this be of base type?
 
     UnexpectedEq(r.private_free_size(), max, "free list size");
 }
@@ -40,7 +97,7 @@ void unit_test::make_recycle_memory(std::vector<size_t> shape, int max) {
 
 template <typename T>
 void unit_test::take_one_buffer_from_fill(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     std::vector<size_t> shape,
     int max
 ) {
@@ -62,7 +119,7 @@ void unit_test::take_one_buffer_from_fill(
 
 template <typename T>
 void unit_test::check_buffer_destruction(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     int max
 ) {
     // -> check number of free is max
@@ -85,7 +142,7 @@ void unit_test::check_buffer_destruction(
 
 template <typename T>
 void unit_test::dec_buffer_ref_count(
-    std::shared_ptr<recycle_memory<T>> recycler
+    std::shared_ptr<library<T>> recycler
 ) {
     buffer_ptr<T> p = recycler->fill();
     UnexpectedEq(p.use_count(), 1, "reference count");
@@ -105,7 +162,7 @@ void unit_test::dec_buffer_ref_count(
 
 template <typename T>
 void unit_test::change_one_buffer(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     int max,
     T data
 ) {
@@ -132,7 +189,7 @@ void unit_test::change_one_buffer(
 
 template <typename T>
 void unit_test::multi_change_buffer(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     int max,
     T data,
     T diff
@@ -174,7 +231,7 @@ void unit_test::multi_change_buffer(
 
 template <typename T>
 void unit_test::set_buffer_ptr_array (
-    std::shared_ptr<recycle_memory<T>> recycler
+    std::shared_ptr<library<T>> recycler
 ) {
     auto buffer = recycler->fill();
     auto shape = buffer->shape;
@@ -197,7 +254,7 @@ void unit_test::set_buffer_ptr_array (
 
 template <typename T>
 void unit_test::queue_buffer_from_fill (
-    std::shared_ptr<recycle_memory<T>> recycler, 
+    std::shared_ptr<library<T>> recycler, 
     int max,
     T data
 ) {
@@ -221,7 +278,7 @@ void unit_test::queue_buffer_from_fill (
 
 template <typename T>
 void unit_test::dec_operate_queue(
-    std::shared_ptr<recycle_memory<T>> recycler
+    std::shared_ptr<library<T>> recycler
 ) {
     auto b1 = recycler->fill();
     auto b2 = recycler->fill();
@@ -257,7 +314,7 @@ void unit_test::thread_read(buffer_ptr<T> b, T data) {
 
 template <typename T>
 void unit_test::change_buffer_threaded(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     T data
 ) {
     // -> check new data accessed from same & threads' shared_ptr instance
@@ -279,7 +336,7 @@ void unit_test::change_buffer_threaded(
 
 template <typename T>
 void unit_test::multi_change_buffer_threaded(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     T data[]
 ) {
     // -> check new data accessed from same & threads' shared_ptr instance
@@ -336,7 +393,7 @@ void unit_test::multi_change_buffer_threaded(
 
 template <typename T>
 void unit_test::thread_wait_fill(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     std::shared_ptr<std::condition_variable> cv,
     bool &waiting_unsafe
 ) {
@@ -354,7 +411,7 @@ void unit_test::thread_wait_fill(
 template <typename T>
 //NOTE: max must be 1 for this
 void unit_test::wait_on_fill_threaded(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     int max,
     T data
 ) {
@@ -399,7 +456,7 @@ void unit_test::wait_on_fill_threaded(
 
 template <typename T>
 void unit_test::thread_wait_queue(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     std::shared_ptr<std::condition_variable> cv,
     bool &waiting_unsafe
 ) {
@@ -415,7 +472,7 @@ void unit_test::thread_wait_queue(
 
 template <typename T>
 void unit_test::buffer_from_empty_queue_threaded(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     int max,
     T data
 ) {
@@ -458,7 +515,7 @@ void unit_test::buffer_from_empty_queue_threaded(
 template <typename T>
 //NOTE: max must be >1 for this
 void unit_test::wait_multi_take_from_fill_threaded(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     int max,
     T data
 ) {
@@ -526,7 +583,7 @@ void unit_test::thread_watcher(
 
 template <typename T>
 void unit_test::watcher_check_reference_counts(
-    std::shared_ptr<recycle_memory<T>> recycler
+    std::shared_ptr<library<T>> recycler
 ) {
     bool operating_unsafe = true;
     int check_ref = 0;
@@ -567,7 +624,7 @@ void unit_test::watcher_check_reference_counts(
 
 template <typename T>
 void unit_test::thread_take_and_release(
-    std::shared_ptr<recycle_memory<T>> recycler
+    std::shared_ptr<library<T>> recycler
 ) {
     while(true) { 
         auto p = recycler->operate();
@@ -581,7 +638,7 @@ void unit_test::thread_take_and_release(
 
 template <typename T>
 void unit_test::run_m_threads_n_buffers(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     std::vector<T> v,
     int m
 ) {

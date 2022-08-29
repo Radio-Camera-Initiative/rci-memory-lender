@@ -24,6 +24,9 @@ template <typename T>
 class recycle_memory;
 
 template <typename T>
+class library;
+
+template <typename T>
 class buffer_ptr;
 
 template <typename T>
@@ -48,11 +51,13 @@ class reuseable_buffer {
 template <typename T>
 class buffer_ptr {
     friend class unit_test;
-    friend class recycle_memory<T>;
+    friend class library<T>;
 
     private:
         std::shared_ptr<reuseable_buffer<T>> sp;
         bool kill_threads;
+
+        buffer_ptr();
 
         buffer_ptr(T* memory, recycle_memory<T>& recycler);
         /* Give number of shared pointers that have the pointer reference.
@@ -76,6 +81,11 @@ class buffer_ptr {
          * Checks that the index is within the size of the array
          */
         auto operator[](int i) const noexcept -> T&;
+
+        operator bool() const noexcept;
+        
+        buffer_ptr<T>& operator=(std::nullptr_t) noexcept;
+
         /* Give the raw pointer that is being managed
          * NOTE: the memory itself will still be managed by the recycler, 
          *       meaning that its lifetime is still as expected with other 
@@ -87,6 +97,8 @@ class buffer_ptr {
         auto poison_pill() -> buffer_ptr<T>;
 
         auto kill() -> bool;
+
+        void reset();
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -100,28 +112,21 @@ class recycle_memory {
     friend class buffer_ptr<T>;
     friend class unit_test;
 
-    // has a vector of recycle_memory struct pointers.
-    private:
+    protected:
         const std::vector<size_t> shape;
         size_t size;
-        std::deque<buffer_ptr<T>> change_q;
-        std::mutex change_mutex;
-        std::condition_variable change_variable;
         std::deque<T*> free_q;
         std::mutex free_mutex;
         std::condition_variable free_variable;
         #ifndef NDEBUG
-        std::set<T*> pointers;
+            std::set<T*> pointers;
         #endif
 
         void return_memory(T* p);
 
-        auto change_condition() -> bool;
         auto free_condition() -> bool;
         auto private_free_size() -> int;
-        auto private_queue_size() -> int;
 
-    public:
         /*
          * Instantiator takes in only one type (from the template), 
          * the shape and the max number of buffers for this type. This means
@@ -151,25 +156,51 @@ class recycle_memory {
          */
         ~recycle_memory();
 
-        /* get a shared pointer to the buffer we want to fill with data 
-         * NOTE: this is a blocking operation until a buffer is free
-         */
-        auto fill() -> buffer_ptr<T>;
+};
 
-        /* give a shared pointer back to be queued for operation 
-         * NOTE: this is a blocking operation
-         */
-        void queue(buffer_ptr<T> ptr);
+template <typename T>
+class library : public recycle_memory<T> {
+    friend class unit_test;
+    private:
+        std::deque<buffer_ptr<T>> change_q;
+        std::mutex change_mutex;
+        std::condition_variable change_variable;
+    
+        auto change_condition() -> bool;
+        auto private_queue_size() -> int;
+    public:
+        /*
+        * Instantiator takes in only one type (from the template), 
+        * the shape and the max number of buffers for this type. This means
+        * recycle_memory will not exceed a certain memory size.
+        * 
+        * DESIGN: Memory is eagerly allocated in this function to reduce any
+        * latency that might appear later in the pipeline for allocation.
+        * Users can experiment with optimal # of buffers with variable 'max'
+        */
 
-        /* get a shared pointer from the queue to operate on  
-         * NOTE: this is a blocking operation until a buffer is queued
-         */
-        auto operate() -> buffer_ptr<T>;
+    library(const std::vector<size_t> s, unsigned int max);
+
+    /* get a shared pointer to the buffer we want to fill with data 
+        * NOTE: this is a blocking operation until a buffer is free
+        */
+    auto fill() -> buffer_ptr<T>;
+
+    /* give a shared pointer back to be queued for operation 
+        * NOTE: this is a blocking operation
+        */
+    void queue(buffer_ptr<T> ptr);
+
+    /* get a shared pointer from the queue to operate on  
+        * NOTE: this is a blocking operation until a buffer is queued
+        */
+    auto operate() -> buffer_ptr<T>;
 };
 
 // TODO: make memory_collection: variadic template for as many buffer types as we want.
 
 #include "buffer.hpp"
 #include "recycler.hpp"
+#include "library.hpp"
 
 #endif

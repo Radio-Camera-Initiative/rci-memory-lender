@@ -13,10 +13,9 @@
 
 template <typename T>
 recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max) : shape(s) {
-    change_q = std::deque<buffer_ptr<T>>();
     free_q = std::deque<T*>();
     #ifndef NDEBUG
-    pointers = std::set<T*>();
+        pointers = std::set<T*>();
     #endif
 
     // No other thread should interfere in the constructor, but this 
@@ -40,8 +39,8 @@ recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max)
         }
 
         #ifndef NDEBUG
-        memset(temp, 0xf0, sizeof(T)*size);
-        pointers.insert(temp);
+            memset(temp, 0xf0, sizeof(T)*size);
+            pointers.insert(temp);
         #endif
         free_q.push_back(temp);
     }
@@ -68,73 +67,16 @@ recycle_memory<T>::~recycle_memory() {
 }
 
 template <typename T>
-auto recycle_memory<T>::fill() -> buffer_ptr<T> {
-
-    std::unique_lock<std::mutex> lock(free_mutex);
-    while(free_q.empty()) {  
-        free_variable.wait(lock);
-    }
-
-    // take from free list
-    T* ptr = free_q.front();
-    free_q.pop_front();
-
-    #ifndef NDEBUG
-    // check there was no changes after free
-    T* f = new T();
-    memset(f, 0xf0, sizeof(T));
-    assert(memcmp(ptr, f, sizeof(T)) == 0);
-    memset(ptr, 0, sizeof(T)*size);
-    #endif
-
-    // make reuseable_buffer for the buffer
-    auto sp = buffer_ptr<T>(ptr, *this);
-    return sp;
-
-}
-
-template <typename T>
-void recycle_memory<T>::queue(buffer_ptr<T> ptr) {
-    std::unique_lock<std::mutex> guard(change_mutex);
-    #ifndef NDEBUG
-    assert(pointers.find(ptr.get()) != pointers.end());
-    #endif
-    change_q.push_back(ptr);
-    guard.unlock();
-    change_variable.notify_one();
-}
-
-template <typename T>
-auto recycle_memory<T>::operate() -> buffer_ptr<T> {
-
-    std::unique_lock<std::mutex> lock(change_mutex);
-    while (change_q.empty()) {
-        change_variable.wait(lock);
-    }
-
-    buffer_ptr<T> r = change_q.front();
-    change_q.pop_front();
-    change_mutex.unlock();
-
-    return r;
-}
-
-template <typename T>
 void recycle_memory<T>::return_memory(T* p) {
     std::unique_lock<std::mutex> guard(free_mutex);
     #ifndef NDEBUG
-    // buffer_ptr constructor is private so no rogue buffers will ever 
-    // reach this function
-    memset(p, 0xf0, sizeof(T)*size);
+        // buffer_ptr constructor is private so no rogue buffers will ever 
+        // reach this function
+        memset(p, 0xf0, sizeof(T)*size);
     #endif
     free_q.push_back(p);
     guard.unlock();
     free_variable.notify_one();
-}
-
-template <typename T>
-auto recycle_memory<T>::change_condition() -> bool {
-    return !change_q.empty();
 }
 
 template <typename T>
@@ -145,9 +87,4 @@ auto recycle_memory<T>::free_condition() -> bool {
 template <typename T>
 auto recycle_memory<T>::private_free_size() -> int {
     return free_q.size();
-}
-
-template <typename T>
-auto recycle_memory<T>::private_queue_size() -> int {
-    return change_q.size();
 }

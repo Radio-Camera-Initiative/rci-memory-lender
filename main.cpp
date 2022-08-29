@@ -5,7 +5,7 @@
 #include "lender.hpp"
 
 /* ask class for buffers and hand them back */
-void make_vis(recycle_memory<int>& r3) {
+void make_vis(library<int>& r3) {
     //TODO: make multiple buffers test
     buffer_ptr<int> r = r3.fill();
     *r = 5;
@@ -18,7 +18,7 @@ void read_vis(buffer_ptr<int> vis) {
 }
 
 /* ask for visibility and make thread to read */
-void change_vis(recycle_memory<int>& r3) {
+void change_vis(library<int>& r3) {
     // what is condition to stop looping this operation and exit gracefully?
     buffer_ptr<int> vis = r3.operate();
     int i = *vis;
@@ -32,7 +32,7 @@ void test_int() {
     // make the class
     std::vector<size_t> shape = std::vector<size_t>(1, 1); // n copies of i (n, i)
     int max = 1;
-    recycle_memory<int> r3(shape, max); 
+    library<int> r3(shape, max); 
     // std::cout << r3.private_free_size() << std::endl;
 
 
@@ -51,7 +51,7 @@ void test_int() {
 void test_array() {
     std::vector<size_t> shape = std::vector<size_t>(2, 2); // n copies of i (n, i)
     int max = 1;
-    recycle_memory<int> recycler(shape, max); 
+    library<int> recycler(shape, max); 
     auto buffer = recycler.fill();
 
     size_t size = 1;
@@ -73,7 +73,7 @@ void test_array() {
 void test_debug() {
     std::vector<size_t> shape = std::vector<size_t>(2, 2); // n copies of i (n, i)
     int max = 1;
-    recycle_memory<int> recycler(shape, max); 
+    library<int> recycler(shape, max); 
     size_t size = 1;
     for (auto iter = shape.begin(); iter != shape.end(); iter++) {
         size *= *iter;
@@ -108,7 +108,7 @@ void test_debug() {
 
 template <typename T>
 void thread_take_and_release(
-    std::shared_ptr<recycle_memory<T>> recycler,
+    std::shared_ptr<library<T>> recycler,
     bool& end_condition
 ) {
     while(true) {
@@ -127,8 +127,8 @@ void thread_take_and_release(
 void testing_pipeline() {
     int max = 5;
     std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<recycle_memory<int>> recycler = 
-        std::make_shared<recycle_memory<int>>(shape, max*2); 
+    std::shared_ptr<library<int>> recycler = 
+        std::make_shared<library<int>>(shape, max*2); 
     std::vector<int> filling(30);
     std::iota(std::begin(filling), std::end(filling), 0);
     bool end_condition = false;
