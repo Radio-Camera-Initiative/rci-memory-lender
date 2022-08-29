@@ -66,3 +66,24 @@ TYPED_TEST(BufferRecyclerTest, MultiChangeBuffers) {
 TYPED_TEST(BufferRecyclerTest, SetBufferArray) { 
     unit_test::set_buffer_ptr_array<TypeParam>(this->array_recycler);
 }
+
+TYPED_TEST(BufferRecyclerTest, ThreadSeesBufferChanges) {
+    unit_test::change_buffer_threaded<TypeParam>(this->recycler, 5);
+}
+
+TYPED_TEST(BufferRecyclerTest, ThreadMultiBufferChange) { 
+    TypeParam data[3] = {5, 9, 12};
+    unit_test::multi_change_buffer_threaded<TypeParam>(this->recycler, data);
+}
+
+TYPED_TEST(BufferRecyclerTest, ThreadWaitsForFill) {
+    unit_test::wait_on_fill_threaded<TypeParam>(this->recycler, this->max, 5);
+}
+
+TYPED_TEST(BufferRecyclerTest, ThreadMultiWaitsForFill) {
+    unit_test::wait_multi_take_from_fill_threaded<TypeParam>(this->recycler, this->max,5);
+}
+
+TYPED_TEST(BufferRecyclerTest, ThreadWatchesBuffer) {
+    unit_test::watcher_check_reference_counts<TypeParam>(this->recycler);
+}
