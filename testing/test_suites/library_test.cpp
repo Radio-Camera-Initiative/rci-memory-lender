@@ -38,3 +38,7 @@ TYPED_TEST(LibraryTest, QueueBuffer) {
 TYPED_TEST(LibraryTest, DecOperate) {
     unit_test::dec_operate_queue<TypeParam>(this->recycler);
 }
+
+TYPED_TEST(LibraryTest, ThreadWaitsForQueue) {
+    unit_test::buffer_from_empty_queue_threaded<TypeParam>(this->recycler, this->max, 5);
+}
