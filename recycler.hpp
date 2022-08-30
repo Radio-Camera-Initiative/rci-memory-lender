@@ -15,7 +15,7 @@ template <typename T>
 recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max) : shape(s) {
     free_q = std::deque<T*>();
     #ifndef NDEBUG
-    pointers = std::set<T*>();
+        pointers = std::set<T*>();
     #endif
 
     // No other thread should interfere in the constructor, but this 
@@ -39,8 +39,8 @@ recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max)
         }
 
         #ifndef NDEBUG
-        memset(temp, 0xf0, sizeof(T)*size);
-        pointers.insert(temp);
+            memset(temp, 0xf0, sizeof(T)*size);
+            pointers.insert(temp);
         #endif
         free_q.push_back(temp);
     }
@@ -70,9 +70,9 @@ template <typename T>
 void recycle_memory<T>::return_memory(T* p) {
     std::unique_lock<std::mutex> guard(free_mutex);
     #ifndef NDEBUG
-    // buffer_ptr constructor is private so no rogue buffers will ever 
-    // reach this function
-    memset(p, 0xf0, sizeof(T)*size);
+        // buffer_ptr constructor is private so no rogue buffers will ever 
+        // reach this function
+        memset(p, 0xf0, sizeof(T)*size);
     #endif
     free_q.push_back(p);
     guard.unlock();

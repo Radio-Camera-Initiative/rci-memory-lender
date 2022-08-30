@@ -19,12 +19,11 @@ void unit_test::null_buffer_ptr() {
     auto s = buffer_ptr<T>();
     EXPECT_FALSE(s) << "Null buffer pointer is not null";
     
-    /* Use Counts cannot be used right now because the shared_ptr compiler 
-     * implementation and the stdlib definition tend to disagree with with 
-     * the actual counts should be for empty shared_ptrs
+    /* Use Counts cannot be used for test verification because the shared_ptr 
+     * compiler implementation and the stdlib definition tend to disagree with 
+     * what the actual counts should be for empty shared_ptrs
      * https://stackoverflow.com/questions/48885252/c-sharedptr-use-count-for-nullptr
      */
-    // UnexpectedEq(s.use_count(), 1, "reference count");
 }
 
 template <typename T>
@@ -60,6 +59,17 @@ void unit_test::buffer_ptr_fill_null(
     for (int i = 0; i < shape.size(); i++) {
         UnexpectedEq(s->shape[i], shape[i], "shape");
     }
+
+    UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
+
+    s.reset();
+    EXPECT_FALSE(s) << "Null buffer pointer is not null";
+
+    UnexpectedEq(recycler->private_free_size(),  max, "number of free buffers");
+
+    s = recycler->fill();
+    EXPECT_TRUE(s) << "Buffer pointer still null, expected pointer";
+    UnexpectedEq(s.use_count(), 1, "reference count");
 
     UnexpectedEq(recycler->private_free_size(),  max - 1, "number of free buffers");
 

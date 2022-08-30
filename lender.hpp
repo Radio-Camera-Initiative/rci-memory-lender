@@ -90,7 +90,7 @@ class buffer_ptr {
 
         operator bool() const noexcept;
         
-        buffer_ptr<T>& operator=(nullptr_t) noexcept;
+        buffer_ptr<T>& operator=(std::nullptr_t) noexcept;
 
         /* Give the raw pointer that is being managed
          * NOTE: the memory itself will still be managed by the recycler, 
@@ -103,6 +103,8 @@ class buffer_ptr {
         auto poison_pill() -> buffer_ptr<T>;
 
         auto kill() -> bool;
+
+        void reset();
 };
 
 /* recycle_memory class will both MAKE and DESTROY memory that is within the reuseable_buffer class
@@ -116,7 +118,6 @@ class recycle_memory {
     friend class buffer_ptr<T>;
     friend class unit_test;
 
-    // has a vector of recycle_memory struct pointers.
     protected:
         const std::vector<size_t> shape;
         size_t size;
@@ -124,7 +125,7 @@ class recycle_memory {
         std::mutex free_mutex;
         std::condition_variable free_variable;
         #ifndef NDEBUG
-        std::set<T*> pointers;
+            std::set<T*> pointers;
         #endif
 
         void return_memory(T* p);

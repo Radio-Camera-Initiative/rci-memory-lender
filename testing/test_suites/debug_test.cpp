@@ -4,67 +4,76 @@
 #include <complex>
 #include <numeric>
 
+typedef std::complex<float> fcomplex;
+using namespace std::complex_literals;
+
+template <typename T>
+class DebugTest : public testing::Test {
+    protected:
+        void SetUp() override {
+            zero = 0;
+            max = 1;
+            shape = std::vector<size_t>(1, 1);
+            recycler = std::make_shared<library<T>>(shape, max);
+            alt_recycler = std::make_shared<library<T>>(shape, max);
+        }
+
+        // void TearDown() override {}
+
+    public:
+        int max;
+        std::vector<size_t> shape;
+        std::vector<size_t> array_shape;
+        std::shared_ptr<library<T>> recycler = nullptr;
+        std::shared_ptr<library<T>> alt_recycler = nullptr;
+        T zero;
+};
+
+using Primitives = ::testing::Types<int, float, fcomplex>;
+TYPED_TEST_SUITE(DebugTest, Primitives);
+
 #ifndef NDEBUG
 
-TEST(Debug, MemoryCheckZero) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<library<int>> r3 = 
-        std::make_shared<library<int>>(shape, max); 
+TYPED_TEST(DebugTest, MemoryCheckZero) {
     {
-        auto buffer = r3->fill();
-        EXPECT_EQ(*buffer, 0);
+        auto buffer = this->recycler->fill();
+        EXPECT_EQ(*buffer, this->zero);
         *buffer = 1;
     }
-    auto buffer = r3->fill();
-    EXPECT_EQ(*buffer, 0);
+    auto buffer = this->recycler->fill();
+    EXPECT_EQ(*buffer, this->zero);
 }
 
-TEST(Debug, MemoryCheckF0) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<library<int>> r3 = 
-        std::make_shared<library<int>>(shape, max); 
-    int* raw_ptr;
+TYPED_TEST(DebugTest, MemoryCheckF0) {
+    TypeParam* raw_ptr;
     {
-        auto buffer = r3->fill();
-        ASSERT_EQ(*buffer, 0);
+        auto buffer = this->recycler->fill();
+        ASSERT_EQ(*buffer, this->zero);
         raw_ptr = buffer.get();
     }
 
-    int* f = new int();
-    memset(f, 0xf0, sizeof(int));
+    TypeParam* f = new TypeParam();
+    memset(f, 0xf0, sizeof(TypeParam));
     EXPECT_EQ(*f, *raw_ptr);
     free(f);
 }
 
-TEST(Debug, MemoryCheckUseAfterFreeAssert) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<library<int>> r3 = 
-        std::make_shared<library<int>>(shape, max); 
-    int* raw_ptr;
+TYPED_TEST(DebugTest, MemoryCheckUseAfterFreeAssert) {
+    TypeParam* raw_ptr;
     {
-        auto buffer = r3->fill();
-        ASSERT_EQ(*buffer, 0);
+        auto buffer = this->recycler->fill();
+        ASSERT_EQ(*buffer, this->zero);
         raw_ptr = buffer.get();
     }
 
     *raw_ptr = 1;
 
-    EXPECT_DEATH(r3->fill(), "Assertion .* failed.");
+    EXPECT_DEATH(this->recycler->fill(), "Assertion .* failed.");
 }
 
-TEST(Debug, QueueInvalidPointerDiffRecycler) {
-    int max = 1;
-    std::vector<size_t> shape = std::vector<size_t>(1, 1);
-    std::shared_ptr<library<int>> r3 = 
-        std::make_shared<library<int>>(shape, max); 
-    std::shared_ptr<library<int>> r2 = 
-        std::make_shared<library<int>>(shape, max); 
-
-    auto p2 = r2->fill();
-    EXPECT_DEATH(r3->queue(p2), ".* Assertion .* failed.");
+TYPED_TEST(DebugTest, QueueInvalidPointerDiffRecycler) {
+    auto p = this->recycler->fill();
+    EXPECT_DEATH(this->alt_recycler->queue(p), ".* Assertion .* failed.");
 }
 
 #endif
