@@ -23,3 +23,8 @@ jobs:
         - name: test
           working-directory: ${{github.workspace}}/testing/build
           run: ctest
+        - name: archive last test results
+          uses: actions/upload-artifact@v3
+          with:
+            name: last-test-log
+            path: /home/runner/work/rci-memory-lender/rci-memory-lender/testing/build/Testing/Temporary/LastTest.log
