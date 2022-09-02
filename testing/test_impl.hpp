@@ -167,6 +167,7 @@ void unit_test::change_one_buffer(
     int max,
     T data
 ) {
+    assert(max > 1);
     // -> check new data cannot be accessed from another buffer
 
     auto b1 = recycler->fill();
@@ -195,6 +196,7 @@ void unit_test::multi_change_buffer(
     T data,
     T diff
 ) {
+    assert(max > 1);
     // -> check new data cannot be accessed from another buffer
 
     auto b1 = recycler->fill();
@@ -242,10 +244,9 @@ void unit_test::set_buffer_ptr_array (
         size *= *iter;
     }
 
-    // fill each index with its number
+    // fill each index with zero
     T i = 0;
-    // T one = 1;
-    for (size_t idx = 0; idx < size; idx++ /*, i+one*/) {
+    for (size_t idx = 0; idx < size; idx++) {
         buffer[idx] = i;
         UnexpectedEq(buffer[idx], i, "array value");
     }
@@ -279,8 +280,10 @@ void unit_test::queue_buffer_from_fill (
 
 template <typename T>
 void unit_test::dec_operate_queue(
-    std::shared_ptr<library<T>> recycler
+    std::shared_ptr<library<T>> recycler,
+    int max
 ) {
+    assert(max > 1);
     auto b1 = recycler->fill();
     auto b2 = recycler->fill();
     UnexpectedEq(recycler->private_queue_size(), 0, "queue size");
@@ -303,12 +306,12 @@ void unit_test::dec_operate_queue(
 
 template <typename T>
 void unit_test::thread_read(std::shared_ptr<std::mutex> mtx, buffer_ptr<T> b, T data) {
+    mtx->lock();
     EXPECT_GE(b.use_count(), 2) <<
         "Unexpected reference count. Expected at least 2 and got " +
         std::to_string(b.use_count());
 
     UnexpectedEq(*b, data, "value");
-    mtx->lock();
     mtx->unlock();
 }
 
@@ -551,6 +554,7 @@ void unit_test::wait_multi_take_from_fill_threaded(
     int max,
     T data
 ) {
+    assert(max > 1);
 // -> check that the last one waits
     bool waiting_unsafe = false;
     std::shared_ptr<std::condition_variable> cv = 

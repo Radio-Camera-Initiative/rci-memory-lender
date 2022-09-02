@@ -75,7 +75,8 @@ struct unit_test {
 
     template <typename T>
     static void dec_operate_queue(
-        std::shared_ptr<library<T>> recycler
+        std::shared_ptr<library<T>> recycler,
+        int max
     );
 
     
