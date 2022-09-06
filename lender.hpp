@@ -208,16 +208,25 @@ class mailbox : public recycle_memory<T> {
     friend class mail_test;
 
     private:
-        int max_read;
-        // TODO: does map_value need to be a template or not?
-        // template <typename T>
         struct map_value {
             std::mutex val_lock;
-            std::condition_variable val_cd;
-            int count;
+            std::condition_variable val_cv;
+            int read_count;
             buffer_ptr<T> value;
+
+            map_value() {
+                read_count = 0;
+                value = buffer_ptr<T>();
+
+            }
+
+            map_value(int rcount, buffer_ptr<T> v) {
+                read_count = rcount;
+                value = v;
+            }
         };
 
+        int max_read;
         // Key of time integration, value of custom struct
         std::unordered_map<int, std::shared_ptr<map_value>> box;
         std::mutex box_lock;

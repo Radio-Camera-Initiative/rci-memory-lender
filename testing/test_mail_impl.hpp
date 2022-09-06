@@ -361,7 +361,7 @@ void mail_test::mailbox_multi_read_multi_entry_one_buffer(
 }
 
 template <typename T>
-void mail_test::wait_for_mail (
+void mail_test::fthread_wait_for_mail (
     std::shared_ptr<mailbox<T>> recycler,
     std::shared_ptr<std::condition_variable> cv,
     bool &waiting_unsafe,
@@ -396,7 +396,7 @@ void mail_test::wait_read_single_entry (
         std::make_shared<std::condition_variable>();
     std::mutex m;
 
-    std::thread check(wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
+    std::thread check(fthread_wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
 
     std::unique_lock<std::mutex> lk(m);
     while(!waiting_unsafe) {
@@ -433,7 +433,7 @@ void mail_test::wait_read_multi_entry (
         std::make_shared<std::condition_variable>();
     std::mutex m;
 
-    std::thread check(wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
+    std::thread check(fthread_wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
 
     std::unique_lock<std::mutex> lk(m);
     while(!waiting_unsafe) {
@@ -469,7 +469,7 @@ void mail_test::wait_read_multi_entry (
 }
 
 template <typename T>
-void mail_test::multi_wait_for_mail (
+void mail_test::fthread_wait_for_mail_multi (
     std::shared_ptr<mailbox<T>> recycler,
     std::shared_ptr<std::condition_variable> cv,
     bool &waiting_unsafe,
@@ -501,7 +501,7 @@ void mail_test::multi_wait_read_single_entry (
         std::make_shared<std::condition_variable>();
     std::mutex m;
 
-    std::thread read1(multi_wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
+    std::thread read1(fthread_wait_for_mail_multi<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
     std::unique_lock<std::mutex> lk(m);
     while(!waiting_unsafe) {
         cv->wait(lk);
@@ -515,7 +515,7 @@ void mail_test::multi_wait_read_single_entry (
         std::make_shared<std::condition_variable>();
     std::mutex m2;
 
-    std::thread read2(multi_wait_for_mail<T>, recycler, std::ref(cv2), std::ref(waiting_unsafe2), 10, val);
+    std::thread read2(fthread_wait_for_mail_multi<T>, recycler, std::ref(cv2), std::ref(waiting_unsafe2), 10, val);
 
     std::unique_lock<std::mutex> lk2(m2);
     while(!waiting_unsafe2) {
@@ -557,7 +557,7 @@ void mail_test::multi_wait_read_multi_entry (
         std::make_shared<std::condition_variable>();
     std::mutex m;
     bool test = true;
-    std::thread read1(multi_wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
+    std::thread read1(fthread_wait_for_mail_multi<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
 
     std::unique_lock<std::mutex> lk(m);
     while(!waiting_unsafe) {
@@ -572,7 +572,7 @@ void mail_test::multi_wait_read_multi_entry (
         std::make_shared<std::condition_variable>();
     std::mutex m2;
 
-    std::thread read2(multi_wait_for_mail<T>, recycler, std::ref(cv2), std::ref(waiting_unsafe2), 10, val);
+    std::thread read2(fthread_wait_for_mail_multi<T>, recycler, std::ref(cv2), std::ref(waiting_unsafe2), 10, val);
 
     std::unique_lock<std::mutex> lk2(m2);
     while(!waiting_unsafe2) {
@@ -624,7 +624,7 @@ void mail_test::multi_wait_read_diff_entry (
         std::make_shared<std::condition_variable>();
     std::mutex m;
     bool test = true;
-    std::thread read1(wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
+    std::thread read1(fthread_wait_for_mail<T>, recycler, std::ref(cv), std::ref(waiting_unsafe), 10, val);
 
     std::unique_lock<std::mutex> lk(m);
     while(!waiting_unsafe) {
@@ -639,7 +639,7 @@ void mail_test::multi_wait_read_diff_entry (
         std::make_shared<std::condition_variable>();
     std::mutex m2;
 
-    std::thread read2(wait_for_mail<T>, recycler, std::ref(cv2), std::ref(waiting_unsafe2), 7, val);
+    std::thread read2(fthread_wait_for_mail<T>, recycler, std::ref(cv2), std::ref(waiting_unsafe2), 7, val);
 
     std::unique_lock<std::mutex> lk2(m2);
     while(!waiting_unsafe2) {

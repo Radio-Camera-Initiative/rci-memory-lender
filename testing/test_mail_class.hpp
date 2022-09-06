@@ -91,7 +91,7 @@ struct mail_test {
 
     private:
         template <typename T>
-        static void wait_for_mail (
+        static void fthread_wait_for_mail (
             std::shared_ptr<mailbox<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
             bool &waiting_unsafe,
@@ -99,7 +99,7 @@ struct mail_test {
             T data
         );
         template <typename T>
-        static void multi_wait_for_mail (
+        static void fthread_wait_for_mail_multi (
             std::shared_ptr<mailbox<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
             bool &waiting_unsafe,

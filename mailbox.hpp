@@ -51,17 +51,12 @@ void mailbox<T>::queue (int key, buffer_ptr<T> ptr) {
         // need to take mutex and inform cd
         std::unique_lock<std::mutex> lock(box[key]->val_lock);
         box[key]->value = ptr;
-        box[key]->count = max_read;
-        box_cv.notify_one();
+        box[key]->read_count = max_read;
+        box[key]->val_cv.notify_one();
 
     } else {
-        std::shared_ptr<map_value> val = std::make_shared<map_value>();
-        std::unique_lock<std::mutex> lock(val->val_lock);
-
-        val->value = ptr;
-        val->count = max_read;
-        box.emplace(key, val);
-        
+        box.emplace(key, std::make_shared<map_value>(max_read, ptr));
+        box[key]->val_cv.notify_one();
     }
 }
 
@@ -69,48 +64,37 @@ template <typename T>
 auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
     // check if entry exists. take value if yes.
     // if no, make new entry and sleep
-    std::unique_lock<std::mutex> guard(box_lock);
-
-    if (contains_key(key)) {
-        // need to take mutex and inform cd
-        std::unique_lock<std::mutex> lock(box[key]->val_lock);
-        if (!box[key]->value) {
-            // IF the value isn't yet set, we still have to wait
-            lock.unlock();
-            while(!box[key]->value){
-                box_cv.wait(guard);
-            }
-            std::unique_lock<std::mutex> lock1(box[key]->val_lock);
+    std::shared_ptr<map_value> val;
+    {
+        std::unique_lock<std::mutex> guard(box_lock);
+    
+        // first add new entry if none exists
+        if (!contains_key(key)) {
+            val = std::make_shared<map_value>();
+            val->value = NULL;
+            // val.read_count is initialized with the writer
+            box.emplace(key, val);
         }
-        box[key]->count--;
-        buffer_ptr<T> v = box[key]->value;
-        if (box[key]->count == 0) {
-            box.erase(key);
-        }
-        // must notify in case other people are waiting
-        box_cv.notify_one();
-        return v;
-
-    } else {
-        std::shared_ptr<map_value> val = std::make_shared<map_value>();
-        std::unique_lock<std::mutex> lock(val->val_lock);
-        val->value = NULL;
-        // val.count is initialized with the writer
-
-        box.emplace(key, val);
-
-        lock.unlock();
-        while(!val->value){
-            box_cv.wait(guard);
-        }
-        std::unique_lock<std::mutex> lock1(val->val_lock);
-
-        val->count--;
-        buffer_ptr<T> v = val->value;
-        if (val->count == 0) {
-            box.erase(key);
-        }
-        box_cv.notify_one();
-        return v;
+        val = box[key];
     }
+    
+    // need to take mutex and inform cd
+    std::unique_lock<std::mutex> lock(val->val_lock);
+    if (!val->value) {
+        // IF the value isn't yet set, we still have to wait
+        while(!val->value){
+            val->val_cv.wait(lock);
+        }
+    }
+    val->read_count--;
+    buffer_ptr<T> v = val->value;
+    if (val->read_count == 0) {
+        std::unique_lock<std::mutex> guard(box_lock);
+        box.erase(key);
+    } else {
+        // must notify in case other people are waiting
+        val->val_cv.notify_one();
+    }
+    
+    return v;
 }
