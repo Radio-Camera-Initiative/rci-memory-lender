@@ -75,7 +75,8 @@ struct unit_test {
 
     template <typename T>
     static void dec_operate_queue(
-        std::shared_ptr<library<T>> recycler
+        std::shared_ptr<library<T>> recycler,
+        int max
     );
 
     
@@ -126,23 +127,26 @@ struct unit_test {
 
     private:
         template <typename T>
-        static void thread_read(buffer_ptr<T> b, T data);
+        static void thread_read(std::shared_ptr<std::mutex> m, buffer_ptr<T> b, T data);
         template <typename T>
         static void thread_wait_fill(
             std::shared_ptr<library<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
             bool &waiting_unsafe
         );
         template <typename T>
         static void thread_wait_queue(
             std::shared_ptr<library<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
             bool &waiting_unsafe
         );
         template <typename T>
         static void thread_watcher(
             buffer_ptr<T> p,
             std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
             bool &operating_unsafe,
             int &check_ref
         );

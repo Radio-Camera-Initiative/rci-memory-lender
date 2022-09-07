@@ -53,9 +53,9 @@ TYPED_TEST(DebugTest, MemoryCheckF0) {
     }
 
     TypeParam* f = new TypeParam();
-    memset(f, 0xf0, sizeof(TypeParam));
+    memset(reinterpret_cast<void*>(f), 0xf0, sizeof(TypeParam));
     EXPECT_EQ(*f, *raw_ptr);
-    free(f);
+    delete f;
 }
 
 TYPED_TEST(DebugTest, MemoryCheckUseAfterFreeAssert) {

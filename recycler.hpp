@@ -12,7 +12,7 @@
 #include "lender.hpp"
 
 template <typename T>
-recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max) : shape(s) {
+recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max) : shp(s) {
     free_q = std::deque<T*>();
     #ifndef NDEBUG
         pointers = std::set<T*>();
@@ -25,7 +25,7 @@ recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max)
     // Centralize allocation avoid waiting later on. Assumes all 
     // memory is used
     size = 1;
-    for (auto iter = shape.begin(); iter != shape.end(); iter++) {
+    for (auto iter = shp.begin(); iter != shp.end(); iter++) {
         size *= *iter;
     }
 
@@ -39,7 +39,7 @@ recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max)
         }
 
         #ifndef NDEBUG
-            memset(temp, 0xf0, sizeof(T)*size);
+            memset(reinterpret_cast<void*>(temp), 0xf0, sizeof(T)*size);
             pointers.insert(temp);
         #endif
         free_q.push_back(temp);
@@ -61,21 +61,25 @@ recycle_memory<T>::~recycle_memory() {
         T* temp = free_q.front(); 
         free_q.pop_front();
         if (temp != NULL) {
-            delete temp;
+            delete[] temp;
         }
     }
+}
+
+template <typename T>
+auto recycle_memory<T>::shape() const noexcept -> const std::vector<size_t>& {
+    return shp;
 }
 
 template <typename T>
 void recycle_memory<T>::return_memory(T* p) {
     std::unique_lock<std::mutex> guard(free_mutex);
     #ifndef NDEBUG
-        // buffer_ptr constructor is private so no rogue buffers will ever 
-        // reach this function
-        memset(p, 0xf0, sizeof(T)*size);
+    // buffer_ptr constructor is private so no rogue buffers will ever
+    // reach this function
+    memset(reinterpret_cast<void*>(p), 0xf0, sizeof(T)*size);
     #endif
     free_q.push_back(p);
-    guard.unlock();
     free_variable.notify_one();
 }
 
