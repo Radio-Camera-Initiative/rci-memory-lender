@@ -31,9 +31,10 @@ auto library<T>::fill() -> buffer_ptr<T> {
     #ifndef NDEBUG
         // check there was no changes after free
         T* f = new T();
-        memset(f, 0xf0, sizeof(T));
+        memset(reinterpret_cast<void*>(f), 0xf0, sizeof(T));
         assert(memcmp(ptr, f, sizeof(T)) == 0);
-        memset(ptr, 0, sizeof(T)*this->size);
+        memset(reinterpret_cast<void*>(ptr), 0, sizeof(T)*this->size);
+        delete f;
     #endif
 
     // make reuseable_buffer for the buffer
@@ -49,7 +50,6 @@ void library<T>::queue(buffer_ptr<T> ptr) {
         assert(this->pointers.find(ptr.get()) != this->pointers.end());
     #endif
     change_q.push_back(ptr);
-    guard.unlock();
     change_variable.notify_one();
 }
 
@@ -63,7 +63,6 @@ auto library<T>::operate() -> buffer_ptr<T> {
 
     buffer_ptr<T> r = change_q.front();
     change_q.pop_front();
-    change_mutex.unlock();
 
     return r;
 }

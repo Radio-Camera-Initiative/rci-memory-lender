@@ -12,9 +12,11 @@ class BufferRecyclerTest : public testing::Test {
     protected:
         void SetUp() override {
             max = 2;
+            small_max = 1;
             shape = std::vector<size_t>(1, 1);
             array_shape = std::vector<size_t>(2, 2);
             recycler = std::make_shared<library<T>>(shape, max);
+            small_recycler = std::make_shared<library<T>>(shape, small_max);
             array_recycler = std::make_shared<library<T>>(array_shape, max);
         }
 
@@ -22,9 +24,11 @@ class BufferRecyclerTest : public testing::Test {
 
     public:
         int max;
+        int small_max;
         std::vector<size_t> shape;
         std::vector<size_t> array_shape;
         std::shared_ptr<library<T>> recycler = nullptr;
+        std::shared_ptr<library<T>> small_recycler = nullptr;
         std::shared_ptr<library<T>> array_recycler = nullptr;
 };
 
@@ -77,7 +81,7 @@ TYPED_TEST(BufferRecyclerTest, ThreadMultiBufferChange) {
 }
 
 TYPED_TEST(BufferRecyclerTest, ThreadWaitsForFill) {
-    unit_test::wait_on_fill_threaded<TypeParam>(this->recycler, this->max, 5);
+    unit_test::wait_on_fill_threaded<TypeParam>(this->small_recycler, this->small_max, 5);
 }
 
 TYPED_TEST(BufferRecyclerTest, ThreadMultiWaitsForFill) {
