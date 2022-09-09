@@ -94,6 +94,7 @@ struct mail_test {
         static void fthread_wait_for_mail (
             std::shared_ptr<mailbox<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
             bool &waiting_unsafe,
             int key,
             T data
@@ -102,6 +103,7 @@ struct mail_test {
         static void fthread_wait_for_mail_multi (
             std::shared_ptr<mailbox<T>> recycler,
             std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
             bool &waiting_unsafe,
             int key,
             T data

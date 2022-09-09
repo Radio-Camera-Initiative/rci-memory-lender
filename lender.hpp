@@ -224,6 +224,7 @@ class mailbox : public recycle_memory<T> {
         std::condition_variable box_cv;
 
         bool contains_key(int idx);
+        bool test_contains_key(int idx);
 
     public:
         mailbox(const std::vector<size_t> s, int max, int reads = 1);

@@ -25,6 +25,12 @@ template <typename T>
 bool mailbox<T>::contains_key(int idx) { return box.find(idx) != box.end(); }
 
 template <typename T>
+bool mailbox<T>::test_contains_key(int idx) {
+    std::unique_lock<std::mutex> guard(box_lock);
+    return contains_key(idx);
+}
+
+template <typename T>
 auto mailbox<T>::fill() -> buffer_ptr<T> {
     // take from free and give to caller
 
@@ -65,35 +71,42 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
     // check if entry exists. take value if yes.
     // if no, make new entry and sleep
     std::shared_ptr<map_value> val;
-    {
-        std::unique_lock<std::mutex> guard(box_lock);
     
-        // first add new entry if none exists
-        if (!contains_key(key)) {
-            val = std::make_shared<map_value>();
-            val->value = NULL;
-            // val.read_count is initialized with the writer
-            box.emplace(key, val);
-        }
-        val = box[key];
+    std::unique_lock<std::mutex> guard(box_lock);
+
+    // first add new entry if none exists
+    if (!contains_key(key)) {
+        val = std::make_shared<map_value>();
+        val->value = NULL;
+        // val.read_count is initialized with the writer
+        box.emplace(key, val);
     }
-    
+    val = box[key];
+
     // need to take mutex and inform cd
     std::unique_lock<std::mutex> lock(val->val_lock);
+    guard.unlock();
     if (!val->value) {
         // IF the value isn't yet set, we still have to wait
         while(!val->value){
             val->val_cv.wait(lock);
         }
     }
+    
+    
     val->read_count--;
     buffer_ptr<T> v = val->value;
     if (val->read_count == 0) {
-        std::unique_lock<std::mutex> guard(box_lock);
+        lock.unlock();
+        std::unique_lock<std::mutex> box_guard(box_lock);
         box.erase(key);
-    } else {
+        val->val_cv.notify_all(); // all waiting threads will throw exception
+    } else if (val->read_count > 0) {
         // must notify in case other people are waiting
         val->val_cv.notify_one();
+    } else {
+        // in this case, we have a read that is after the val has been reaped
+        throw "Access after deletion";
     }
     
     return v;
