@@ -168,4 +168,17 @@ int main(int argc, char** argv) {
     // TODO: how does the main thread not end before all the sub threads from
     //    the operating threads end
     std::cout << "end" << std::endl;
+
+    std::vector<size_t> shape = std::vector<size_t>(2, 2); // n copies of i (n, i)
+    int max = 1;
+    mailbox<int> recycler(shape, max); 
+
+    buffer_ptr<int> r = recycler.fill();
+    read_vis(r);
+    *r = 7;
+    read_vis(r);
+    recycler.queue(1, r);
+    std::cout << "queued" << std::endl;
+    auto s = recycler.operate(1);
+    read_vis(s);
 }
