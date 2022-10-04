@@ -6,6 +6,7 @@
 #include <mutex>
 #include <cstring>
 #include <cassert>
+#include <stdexcept>
 #include <algorithm>
 #include <unordered_map>
 #include <condition_variable>
@@ -106,7 +107,7 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
         val->val_cv.notify_one();
     } else {
         // in this case, we have a read that is after the val has been reaped
-        throw "Access after deletion";
+        throw std::logic_error("Access after deletion");
     }
     
     return v;
