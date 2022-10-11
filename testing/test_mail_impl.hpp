@@ -400,6 +400,8 @@ void mail_test::wait_read_single_entry (
     T val
 ) {
     EXPECT_FALSE(recycler->test_contains_key(10));
+    EXPECT_FALSE(recycler->test_contains_key(7));
+    EXPECT_FALSE(recycler->test_contains_key(45));
 
     bool waiting_unsafe = false;
     std::shared_ptr<std::condition_variable> cv = 
@@ -419,13 +421,10 @@ void mail_test::wait_read_single_entry (
 
     buffer_ptr<T> p = recycler->fill();
     UnexpectedEq(p.use_count(), 1, "reference count");
-    EXPECT_FALSE(recycler->test_contains_key(7));
-    EXPECT_FALSE(recycler->test_contains_key(45));
     
     *p = val;
 
     recycler->queue(10, p);
-    UnexpectedEq(p.use_count(), 2, "reference count");
 
     check.join();
 
@@ -440,6 +439,8 @@ void mail_test::wait_read_multi_entry (
     T val
 ) {
     EXPECT_FALSE(recycler->test_contains_key(10)); 
+    EXPECT_FALSE(recycler->test_contains_key(7));
+    EXPECT_FALSE(recycler->test_contains_key(45));
 
     bool waiting_unsafe = false;
     std::shared_ptr<std::condition_variable> cv = 
@@ -458,13 +459,14 @@ void mail_test::wait_read_multi_entry (
         "Thread did not wait for buffer to be available";
 
     buffer_ptr<T> p = recycler->fill();
-    UnexpectedEq(p.use_count(), 1, "reference count");
-    EXPECT_FALSE(recycler->test_contains_key(7));
-    EXPECT_FALSE(recycler->test_contains_key(45));
     buffer_ptr<T> f = recycler->fill();
+
+    UnexpectedEq(p.use_count(), 1, "reference count");
     UnexpectedEq(f.use_count(), 1, "reference count");
+
     recycler->queue(7, f);
     recycler->queue(45, f);
+
     EXPECT_TRUE(recycler->test_contains_key(7));
     EXPECT_TRUE(recycler->test_contains_key(45));
     UnexpectedEq(f.use_count(), 3, "reference count");
@@ -472,7 +474,6 @@ void mail_test::wait_read_multi_entry (
     *p = val;
 
     recycler->queue(10, p);
-    UnexpectedEq(p.use_count(), 2, "reference count");
 
     check.join();
 
@@ -555,7 +556,6 @@ void mail_test::multi_wait_read_single_entry (
     *p = val;
 
     recycler->queue(10, p);
-    UnexpectedEq(p.use_count(), 2, "reference count");
 
     read1.join();
     read2.join();
@@ -575,6 +575,8 @@ void mail_test::multi_wait_read_multi_entry (
     T val
 ) {
     EXPECT_FALSE(recycler->test_contains_key(10));
+    EXPECT_FALSE(recycler->test_contains_key(7));
+    EXPECT_FALSE(recycler->test_contains_key(45));
 
     bool waiting_unsafe = false;
     std::shared_ptr<std::condition_variable> cv = 
@@ -609,13 +611,14 @@ void mail_test::multi_wait_read_multi_entry (
         "Thread did not wait for buffer to be available";
 
     buffer_ptr<T> p = recycler->fill();
-    UnexpectedEq(p.use_count(), 1, "reference count");
-    EXPECT_FALSE(recycler->test_contains_key(7));
-    EXPECT_FALSE(recycler->test_contains_key(45));
     buffer_ptr<T> f = recycler->fill();
+
+    UnexpectedEq(p.use_count(), 1, "reference count");
     UnexpectedEq(f.use_count(), 1, "reference count");
+
     recycler->queue(7, f);
     recycler->queue(45, f);
+
     EXPECT_TRUE(recycler->test_contains_key(7));
     EXPECT_TRUE(recycler->test_contains_key(45));
     UnexpectedEq(f.use_count(), 3, "reference count");
@@ -623,7 +626,6 @@ void mail_test::multi_wait_read_multi_entry (
     *p = val;
 
     recycler->queue(10, p);
-    UnexpectedEq(p.use_count(), 2, "reference count");
 
     read1.join();
     read2.join();
@@ -644,6 +646,7 @@ void mail_test::multi_wait_read_diff_entry (
 ) {
     EXPECT_FALSE(recycler->test_contains_key(10));
     EXPECT_FALSE(recycler->test_contains_key(7));
+    EXPECT_FALSE(recycler->test_contains_key(45));
 
     bool waiting_unsafe = false;
     std::shared_ptr<std::condition_variable> cv = 
@@ -678,27 +681,21 @@ void mail_test::multi_wait_read_diff_entry (
         "Thread did not wait for buffer to be available";
 
     buffer_ptr<T> p = recycler->fill();
-    UnexpectedEq(p.use_count(), 1, "reference count");
-    EXPECT_FALSE(recycler->test_contains_key(45));
     buffer_ptr<T> f = recycler->fill();
-    UnexpectedEq(f.use_count(), 1, "reference count");
     buffer_ptr<T> q = recycler->fill();
+
+    UnexpectedEq(p.use_count(), 1, "reference count");
+    UnexpectedEq(f.use_count(), 1, "reference count");
     UnexpectedEq(q.use_count(), 1, "reference count");
+
     recycler->queue(45, q);
-    EXPECT_TRUE(recycler->test_contains_key(7));
-    EXPECT_TRUE(recycler->test_contains_key(10));
     EXPECT_TRUE(recycler->test_contains_key(45));
     
     *p = val;
     *f = val;
 
     recycler->queue(10, p);
-    UnexpectedEq(p.use_count(), 2, "reference count");
-
     recycler->queue(7, f);
-    UnexpectedEq(f.use_count(), 2, "reference count"); 
-    // this came up as 3 at some point -- possibility that the "operate" was 
-    // able to get a hold of the buffer before this was checked
 
     read1.join();
     read2.join();
