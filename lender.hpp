@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <condition_variable>
 
-// #define NDEBUG 
+// #define NODEBUG 
 
 /* DESIGN: As template classes, it is assumed that only primitives will be used
  * in the final objects. These are the underlying storage units for every more
@@ -113,7 +113,7 @@ class recycle_memory {
         std::deque<T*> free_q;
         std::mutex free_mutex;
         std::condition_variable free_variable;
-        #ifndef NDEBUG
+        #ifndef NODEBUG
             std::set<T*> pointers;
         #endif
 

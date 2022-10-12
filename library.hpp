@@ -28,7 +28,7 @@ auto library<T>::fill() -> buffer_ptr<T> {
     T* ptr = this->free_q.front();
     this->free_q.pop_front();
 
-    #ifndef NDEBUG
+    #ifndef NODEBUG
         // check there was no changes after free
         T* f = new T();
         memset(reinterpret_cast<void*>(f), 0xf0, sizeof(T));
@@ -46,7 +46,8 @@ auto library<T>::fill() -> buffer_ptr<T> {
 template <typename T>
 void library<T>::queue(buffer_ptr<T> ptr) {
     std::unique_lock<std::mutex> guard(change_mutex);
-    #ifndef NDEBUG
+    #ifndef NODEBUG
+        // Make sure the ptr exists in the set
         assert(this->pointers.find(ptr.get()) != this->pointers.end());
     #endif
     change_q.push_back(ptr);

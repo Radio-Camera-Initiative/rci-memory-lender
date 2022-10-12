@@ -44,6 +44,15 @@ auto mailbox<T>::fill() -> buffer_ptr<T> {
     T* ptr = this->free_q.front();
     this->free_q.pop_front();
 
+    #ifndef NODEBUG
+        // check there was no changes after free
+        T* f = new T();
+        memset(reinterpret_cast<void*>(f), 0xf0, sizeof(T));
+        assert(memcmp(ptr, f, sizeof(T)) == 0);
+        memset(reinterpret_cast<void*>(ptr), 0, sizeof(T)*this->size);
+        delete f;
+    #endif
+
     // make reuseable_buffer for the buffer
     auto sp = buffer_ptr<T>(ptr, *this);
     return sp;
@@ -53,6 +62,10 @@ template <typename T>
 void mailbox<T>::queue (int key, buffer_ptr<T> ptr) {
     // add new entry or fill in old
     std::unique_lock<std::mutex> guard(box_lock);
+    #ifndef NODEBUG
+        // Make sure the ptr exists in the set
+        assert(this->pointers.find(ptr.get()) != this->pointers.end());
+    #endif
 
     if (contains_key(key)) {
         // need to take mutex and inform cd
