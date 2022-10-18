@@ -709,4 +709,84 @@ void mail_test::multi_wait_read_diff_entry (
     EXPECT_FALSE(recycler->test_contains_key(10));
 }
 
-// ALSO add asynchronous (serial reads)
+template <typename T>
+void mail_test::extra_read_single_entry (
+    std::shared_ptr<mailbox<T>> recycler,
+    T val
+) {
+    EXPECT_FALSE(recycler->test_contains_key(10));
+    EXPECT_THROW(auto b = recycler->operate(10), std::logic_error);
+}
+
+template <typename T>
+void mail_test::fthread_extra_wait (
+    std::shared_ptr<mailbox<T>> recycler,
+    std::shared_ptr<std::condition_variable> cv,
+    std::shared_ptr<std::mutex> m,
+    bool &waiting_unsafe,
+    int key
+) {
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        // check thread is waiting
+        waiting_unsafe = true;
+        cv->notify_all();
+    }
+
+    EXPECT_THROW(auto b = recycler->operate(key), std::logic_error);
+}
+
+template <typename T>
+void mail_test::extra_wait_read_single_entry (
+    std::shared_ptr<mailbox<T>> recycler,
+    T val
+) {
+    EXPECT_FALSE(recycler->test_contains_key(10));
+
+    bool waiting_unsafe = false;
+    std::shared_ptr<std::condition_variable> cv = 
+        std::make_shared<std::condition_variable>();
+    auto m = std::make_shared<std::mutex>();
+    
+    std::thread read1(fthread_wait_for_mail_multi<T>, recycler, cv, m, std::ref(waiting_unsafe), 10, val);
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        while(!waiting_unsafe) {
+            cv->wait(lk);
+        }
+    }
+
+    ASSERT_TRUE(waiting_unsafe) <<
+        "Thread did not wait for buffer to be available";
+
+    bool waiting_unsafe2 = false;
+    std::shared_ptr<std::condition_variable> cv2 = 
+        std::make_shared<std::condition_variable>();
+    auto m2 = std::make_shared<std::mutex>();
+
+    std::thread read2(fthread_extra_wait<T>, recycler, cv2, m2, std::ref(waiting_unsafe2), 10);
+    {
+        std::unique_lock<std::mutex> lk2(*m2);
+        while(!waiting_unsafe2) {
+            cv2->wait(lk2);
+        }
+    }
+
+    ASSERT_TRUE(waiting_unsafe2) <<
+        "Thread did not wait for buffer to be available";
+
+    read2.join();
+
+    buffer_ptr<T> p = recycler->fill();
+    UnexpectedEq(p.use_count(), 1, "reference count");
+    *p = val;
+
+    recycler->queue(10, p);
+
+    read1.join();
+
+    EXPECT_FALSE(waiting_unsafe) <<
+        "Thread did not end and join correctly";
+
+    EXPECT_FALSE(recycler->test_contains_key(10));
+}

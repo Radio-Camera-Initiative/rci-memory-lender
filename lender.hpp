@@ -208,7 +208,11 @@ class mailbox : public recycle_memory<T> {
             map_value() {
                 read_count = 0;
                 value = buffer_ptr<T>();
+            }
 
+            map_value(int rcount) {
+                read_count = rcount;
+                value = NULL;
             }
 
             map_value(int rcount, buffer_ptr<T> v) {
