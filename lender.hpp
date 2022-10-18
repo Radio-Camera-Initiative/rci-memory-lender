@@ -226,6 +226,9 @@ class mailbox : public recycle_memory<T> {
         std::unordered_map<int, std::shared_ptr<map_value>> box;
         std::mutex box_lock;
         std::condition_variable box_cv;
+        #ifndef NODEBUG
+            std::set<int> keys;
+        #endif
 
         bool contains_key(int idx);
         bool test_contains_key(int idx);

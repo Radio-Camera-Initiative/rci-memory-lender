@@ -19,6 +19,9 @@ mailbox<T>::mailbox(const std::vector<size_t> s, int max, int reads) :
     recycle_memory<T>::recycle_memory(s, max) 
 {
     box = std::unordered_map<int, std::shared_ptr<map_value>>();
+    #ifndef NODEBUG
+        keys = std::set<int>();
+    #endif
     max_read = reads;
 }
 
@@ -65,6 +68,10 @@ void mailbox<T>::queue (int key, buffer_ptr<T> ptr) {
     #ifndef NODEBUG
         // Make sure the ptr exists in the set
         assert(this->pointers.find(ptr.get()) != this->pointers.end());
+        // Make sure the key hasnt been removed from the box already
+        assert(this->keys.find(key) == this->keys.end());
+        // Add deleted key to used keys set
+        this->keys.insert(key);
     #endif
 
     if (contains_key(key)) {
@@ -93,6 +100,10 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
 
     // first add new entry if none exists
     if (!contains_key(key)) {
+        #ifndef NODEBUG
+            // Make sure the key hasnt been removed from the box already
+            assert(this->keys.find(key) == this->keys.end());
+        #endif
         box.emplace(key, std::make_shared<map_value>(max_read));
     }
     val = box[key];
