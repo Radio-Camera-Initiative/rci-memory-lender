@@ -790,3 +790,98 @@ void mail_test::extra_wait_read_single_entry (
 
     EXPECT_FALSE(recycler->test_contains_key(10));
 }
+
+template <typename T>
+void mail_test::fthread_wait (
+    std::shared_ptr<mailbox<T>> recycler,
+    std::shared_ptr<std::condition_variable> cv,
+    std::shared_ptr<std::mutex> m,
+    std::shared_ptr<bool> waiting_unsafe,
+    int key,
+    T data
+) {
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        // check thread is waiting
+        *waiting_unsafe = true;
+        cv->notify_all();
+    }
+    // Ordinarily we would want this to happen before the lock is relenquished, 
+    // but this is a blocking function
+    auto b = recycler->operate(key);
+
+    // check expected data value
+    UnexpectedEq(*b, data, "buffer value");
+
+    {
+        std::unique_lock<std::mutex> lk(*m);
+        *waiting_unsafe = false;
+        cv->notify_all();
+    }
+}
+
+template <typename T>
+void mail_test::wait_m_threads_same_key( // also need to do each waiting for one
+    std::shared_ptr<mailbox<T>> recycler,
+    int m,
+    T val
+) {
+    std::vector<std::thread> threads(m); // make m
+    for (auto& i : threads) {
+        std::shared_ptr<bool> waiting_unsafe = std::make_shared<bool>(false);
+        std::shared_ptr<std::condition_variable> cv = 
+            std::make_shared<std::condition_variable>();
+        auto m = std::make_shared<std::mutex>();
+
+        i = std::thread(fthread_wait<T>, recycler, cv, m, waiting_unsafe, 10, val);
+        {
+            std::unique_lock<std::mutex> lk(*m);
+            while(!*waiting_unsafe) {
+                cv->wait(lk);
+            }
+        }
+    }
+    auto p = recycler->fill();
+    *p = val;
+    recycler->queue(10, p);
+    for (auto& i : threads) {
+        i.join();
+    }
+    // if all the threads have read, then the key is no longer in the mailbox
+    EXPECT_FALSE(recycler->test_contains_key(10));
+}
+
+template <typename T>
+void mail_test::wait_m_threads_diff_key(
+    std::shared_ptr<mailbox<T>> recycler,
+    std::vector<int> v,
+    int m // where m is the size of v
+) {
+    std::vector<std::thread> threads(m); // make m
+    for (auto i : v) {
+        std::shared_ptr<bool> waiting_unsafe = std::make_shared<bool>(false);
+        std::shared_ptr<std::condition_variable> cv = 
+            std::make_shared<std::condition_variable>();
+        auto m = std::make_shared<std::mutex>();
+
+        threads[i] = std::thread(fthread_wait<T>, recycler, cv, m, waiting_unsafe, i, 5);
+        {
+            std::unique_lock<std::mutex> lk(*m);
+            while(!*waiting_unsafe) {
+                cv->wait(lk);
+            }
+        }
+    }
+    auto p = recycler->fill();
+    *p = 5; // TODO: add in more than 1 buffer.
+    for (auto i : v) {
+        recycler->queue(i, p);
+    }
+    for (auto& i : threads) {
+        i.join();
+    }
+    // if all the threads have read, then the key is no longer in the mailbox
+    for (auto i : v) {
+        EXPECT_FALSE(recycler->test_contains_key(i));
+    }
+}
