@@ -20,7 +20,7 @@ mailbox<T>::mailbox(const std::vector<size_t> s, int max, int reads) :
 {
     box = std::unordered_map<int, std::shared_ptr<map_value>>();
     #ifndef NODEBUG
-        keys = std::set<int>();
+        used_keys = std::set<int>();
     #endif
     max_read = reads;
 }
@@ -69,9 +69,9 @@ void mailbox<T>::queue (int key, buffer_ptr<T> ptr) {
         // Make sure the ptr exists in the set
         assert(this->pointers.find(ptr.get()) != this->pointers.end());
         // Make sure the key hasnt been removed from the box already
-        assert(this->keys.find(key) == this->keys.end());
+        assert(this->used_keys.find(key) == this->used_keys.end());
         // Add deleted key to used keys set
-        this->keys.insert(key);
+        this->used_keys.insert(key);
     #endif
 
     if (contains_key(key)) {
@@ -86,7 +86,7 @@ void mailbox<T>::queue (int key, buffer_ptr<T> ptr) {
 
     } else {
         box.emplace(key, std::make_shared<map_value>(max_read, ptr));
-        box[key]->val_cv.notify_one();
+        box[key]->val_cv.notify_all();
     }
 }
 
@@ -102,7 +102,7 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
     if (!contains_key(key)) {
         #ifndef NODEBUG
             // Make sure the key hasnt been removed from the box already
-            assert(this->keys.find(key) == this->keys.end());
+            assert(this->used_keys.find(key) == this->used_keys.end());
         #endif
         box.emplace(key, std::make_shared<map_value>(max_read));
     }

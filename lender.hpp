@@ -227,7 +227,7 @@ class mailbox : public recycle_memory<T> {
         std::mutex box_lock;
         std::condition_variable box_cv;
         #ifndef NODEBUG
-            std::set<int> keys;
+            std::set<int> used_keys;
         #endif
 
         bool contains_key(int idx);
