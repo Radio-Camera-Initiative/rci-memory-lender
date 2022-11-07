@@ -1,4 +1,6 @@
-# r3_central_manager
+# RCI Memory Lender
+
+[Documentation](https://radio-camera-initiative.github.io/rci-memory-lender/html/index.html)
 
 Requirements for use:
 
