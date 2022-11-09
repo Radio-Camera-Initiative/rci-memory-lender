@@ -36,6 +36,7 @@ auto library<T>::fill() -> buffer_ptr<T> {
         assert(memcmp(ptr, f, sizeof(T)) == 0);
         memset(reinterpret_cast<void*>(ptr), 0, sizeof(T)*this->size);
         delete f;
+        std::clog << "end of lib fill debug" << std::endl;
     #endif
 
     // make reuseable_buffer for the buffer
