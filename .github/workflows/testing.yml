@@ -22,7 +22,7 @@ jobs:
           run: cmake --build ${{github.workspace}}/testing/build
         - name: test
           working-directory: ${{github.workspace}}/testing/build
-          run: ctest
+          run: ctest --output-on-failure
         - name: archive last test results
           uses: actions/upload-artifact@v3
           with:
