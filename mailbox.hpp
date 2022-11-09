@@ -68,8 +68,10 @@ void mailbox<T>::queue (int key, buffer_ptr<T> ptr) {
     #ifndef NODEBUG
         // Make sure the ptr exists in the set
         assert(this->pointers.find(ptr.get()) != this->pointers.end());
+        std::clog << "pointer exists in set" << std::endl;
         // Make sure the key hasnt been removed from the box already
         assert(this->used_keys.find(key) == this->used_keys.end());
+        std::clog << "q: key hasn't yet been used" << std::endl;
         // Add deleted key to used keys set
         this->used_keys.insert(key);
     #endif
@@ -103,6 +105,7 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
         #ifndef NODEBUG
             // Make sure the key hasnt been removed from the box already
             assert(this->used_keys.find(key) == this->used_keys.end());
+            std::clog << "oper: key hasn't yet been used" << std::endl;
         #endif
         box.emplace(key, std::make_shared<map_value>(max_read));
     }
