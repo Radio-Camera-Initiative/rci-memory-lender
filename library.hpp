@@ -33,7 +33,7 @@ auto library<T>::fill() -> buffer_ptr<T> {
         T* f = new T();
         memset(reinterpret_cast<void*>(f), 0xf0, sizeof(T));
         std::clog << memcmp(ptr, f, sizeof(T)) << " and expecting 0" << std::endl;
-        std::clog << memcmp(ptr, f, sizeof(T)) == 0 << std::endl;
+        std::clog << (memcmp(ptr, f, sizeof(T)) == 0) << std::endl;
         assert(memcmp(ptr, f, sizeof(T)) == 0);
         memset(reinterpret_cast<void*>(ptr), 0, sizeof(T)*this->size);
         delete f;
