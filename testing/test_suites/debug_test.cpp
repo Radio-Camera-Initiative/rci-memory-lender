@@ -131,13 +131,13 @@ TYPED_TEST(DebugTest, MailboxQueueDeadKey) {
     EXPECT_DEATH(this->mail->queue(7, p), ".* Assertion .* failed.");
 }
 
-TYPED_TEST(DebugTest, MailboxOperateDeadKey) {
-    auto p = this->mail->fill();
-    this->mail->queue(7, p);
-    {
-        auto temp = this->mail->operate(7);
-    }
-    EXPECT_DEATH(this->mail->operate(7), ".* Assertion .* failed.");
-}
+// TYPED_TEST(DebugTest, MailboxOperateDeadKey) {
+//     auto p = this->mail->fill();
+//     this->mail->queue(7, p);
+//     {
+//         auto temp = this->mail->operate(7);
+//     }
+//     EXPECT_DEATH(this->mail->operate(7), ".* Assertion .* failed.");
+// }
 
 #endif
