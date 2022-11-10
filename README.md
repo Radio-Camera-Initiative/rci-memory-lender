@@ -1,8 +1,16 @@
 # RCI Memory Lender
 
-[Documentation](https://radio-camera-initiative.github.io/rci-memory-lender/html/index.html)
+[Documentation](https://radio-camera-initiative.github.io/rci-memory-lender/index.html)
 
-Requirements for use:
+### Build Docs
+
+If html docs hosted on the GitHub pages of the repo are insufficient, you can build the html doxygen docs with the current Doxyfile configuration.
+
+If on wario, use the downloaded Doxygen to compile: `/usr/local/bin/doxygen`
+
+On other machines, download Doxygen from source and follow installation instructions. Then run the same command.
+
+### Requirements for use
 
 The Recycler (`recycle_memory`) must outlive all objects and threads, to be the last destroyed object.
 
