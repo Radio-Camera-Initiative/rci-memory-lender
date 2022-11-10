@@ -89,6 +89,32 @@ struct mail_test {
         T val
     );
 
+    template <typename T>
+    static void extra_read_single_entry (
+        std::shared_ptr<mailbox<T>> recycler,
+        T val
+    );
+
+    template <typename T>
+    static void extra_wait_read_single_entry (
+        std::shared_ptr<mailbox<T>> recycler,
+        T val
+    );
+
+    template <typename T>
+    static void wait_m_threads_same_key (
+        std::shared_ptr<mailbox<T>> recycler,
+        int m,
+        T val
+    );
+
+    template <typename T>
+    static void wait_m_threads_diff_key( 
+        std::shared_ptr<mailbox<T>> recycler,
+        std::vector<int> v,
+        int m
+    );
+
     private:
         template <typename T>
         static void fthread_wait_for_mail (
@@ -105,6 +131,23 @@ struct mail_test {
             std::shared_ptr<std::condition_variable> cv,
             std::shared_ptr<std::mutex> m,
             bool &waiting_unsafe,
+            int key,
+            T data
+        );
+        template <typename T>
+        static void fthread_extra_wait (
+            std::shared_ptr<mailbox<T>> recycler,
+            std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
+            bool &waiting_unsafe,
+            int key
+        );
+        template <typename T>
+        static void fthread_wait (
+            std::shared_ptr<mailbox<T>> recycler,
+            std::shared_ptr<std::condition_variable> cv,
+            std::shared_ptr<std::mutex> m,
+            std::shared_ptr<bool> waiting_unsafe,
             int key,
             T data
         );

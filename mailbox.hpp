@@ -19,6 +19,9 @@ mailbox<T>::mailbox(const std::vector<size_t> s, int max, int reads) :
     recycle_memory<T>::recycle_memory(s, max) 
 {
     box = std::unordered_map<int, std::shared_ptr<map_value>>();
+    #ifndef NODEBUG
+        used_keys = std::set<int>();
+    #endif
     max_read = reads;
 }
 
@@ -44,6 +47,15 @@ auto mailbox<T>::fill() -> buffer_ptr<T> {
     T* ptr = this->free_q.front();
     this->free_q.pop_front();
 
+    #ifndef NODEBUG
+        // check there was no changes after free
+        T* f = new T();
+        memset(reinterpret_cast<void*>(f), 0xf0, sizeof(T));
+        assert(memcmp(ptr, f, sizeof(T)) == 0);
+        memset(reinterpret_cast<void*>(ptr), 0, sizeof(T)*this->size);
+        delete f;
+    #endif
+
     // make reuseable_buffer for the buffer
     auto sp = buffer_ptr<T>(ptr, *this);
     return sp;
@@ -53,17 +65,28 @@ template <typename T>
 void mailbox<T>::queue (int key, buffer_ptr<T> ptr) {
     // add new entry or fill in old
     std::unique_lock<std::mutex> guard(box_lock);
+    #ifndef NODEBUG
+        // Make sure the ptr exists in the set
+        assert(this->pointers.find(ptr.get()) != this->pointers.end());
+        // Make sure the key hasnt been removed from the box already
+        assert(this->used_keys.find(key) == this->used_keys.end());
+        // Add deleted key to used keys set
+        this->used_keys.insert(key);
+    #endif
 
     if (contains_key(key)) {
+        std::shared_ptr<map_value> val = box[key];
         // need to take mutex and inform cd
-        std::unique_lock<std::mutex> lock(box[key]->val_lock);
-        box[key]->value = ptr;
-        box[key]->read_count = max_read;
-        box[key]->val_cv.notify_one();
+        std::unique_lock<std::mutex> lock(val->val_lock);
+        val->value = ptr;
+        if (val->read_count <= 0) {
+            box.erase(key);
+        }
+        val->val_cv.notify_all();
 
     } else {
         box.emplace(key, std::make_shared<map_value>(max_read, ptr));
-        box[key]->val_cv.notify_one();
+        box[key]->val_cv.notify_all();
     }
 }
 
@@ -77,15 +100,24 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
 
     // first add new entry if none exists
     if (!contains_key(key)) {
-        val = std::make_shared<map_value>();
-        val->value = NULL;
-        // val.read_count is initialized with the writer
-        box.emplace(key, val);
+        #ifndef NODEBUG
+            // Make sure the key hasnt been removed from the box already
+            assert(this->used_keys.find(key) == this->used_keys.end());
+        #endif
+        box.emplace(key, std::make_shared<map_value>(max_read));
     }
     val = box[key];
 
     // need to take mutex and inform cd
     std::unique_lock<std::mutex> lock(val->val_lock);
+    val->read_count--;
+    if (val->read_count == 0 && val->value) {
+        box.erase(key);
+    } else if (val->read_count < 0) {
+        // in this case, we have a read that is above allowed reads
+        throw std::logic_error("Access after deletion");
+    }
+
     guard.unlock();
     if (!val->value) {
         // IF the value isn't yet set, we still have to wait
@@ -94,21 +126,7 @@ auto mailbox<T>::operate(int key) -> buffer_ptr<T> {
         }
     }
     
-    
-    val->read_count--;
     buffer_ptr<T> v = val->value;
-    if (val->read_count == 0) {
-        lock.unlock();
-        std::unique_lock<std::mutex> box_guard(box_lock);
-        box.erase(key);
-        val->val_cv.notify_all(); // all waiting threads will throw exception
-    } else if (val->read_count > 0) {
-        // must notify in case other people are waiting
-        val->val_cv.notify_one();
-    } else {
-        // in this case, we have a read that is after the val has been reaped
-        throw std::logic_error("Access after deletion");
-    }
     
     return v;
 }

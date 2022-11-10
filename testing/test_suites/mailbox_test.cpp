@@ -13,6 +13,7 @@ class MailboxTest : public testing::Test {
         void SetUp() override {
             max = 3;
             shape = std::vector<size_t>(1, 1);
+            mailbox_0 = std::make_shared<mailbox<T>>(shape, max, 0);
             mailbox_1 = std::make_shared<mailbox<T>>(shape, max);
             mailbox_2 = std::make_shared<mailbox<T>>(shape, max, 2);
             mailbox_3 = std::make_shared<mailbox<T>>(shape, max, 3);
@@ -23,6 +24,7 @@ class MailboxTest : public testing::Test {
     public:
         int max;
         std::vector<size_t> shape;
+        std::shared_ptr<mailbox<T>> mailbox_0 = nullptr;
         std::shared_ptr<mailbox<T>> mailbox_1 = nullptr;
         std::shared_ptr<mailbox<T>> mailbox_2 = nullptr;
         std::shared_ptr<mailbox<T>> mailbox_3 = nullptr;
@@ -89,4 +91,12 @@ TYPED_TEST(MailboxTest, MultiWaitMultiEntry) {
 
 TYPED_TEST(MailboxTest, MultiWaitDiffEntry) {
     mail_test::multi_wait_read_diff_entry<TypeParam>(this->mailbox_1, 9);
+}
+
+TYPED_TEST(MailboxTest, ExtraSingleEntry) {
+    mail_test::extra_read_single_entry<TypeParam>(this->mailbox_0, 9);
+}
+
+TYPED_TEST(MailboxTest, ExtraWaitSingleEntry) {
+    mail_test::extra_wait_read_single_entry<TypeParam>(this->mailbox_1, 9);
 }

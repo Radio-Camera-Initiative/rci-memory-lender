@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <condition_variable>
 
-// #define NDEBUG 
+// #define NODEBUG 
 
 /* DESIGN: As template classes, it is assumed that only primitives will be used
  * in the final objects. These are the underlying storage units for every more
@@ -113,7 +113,7 @@ class recycle_memory {
         std::deque<T*> free_q;
         std::mutex free_mutex;
         std::condition_variable free_variable;
-        #ifndef NDEBUG
+        #ifndef NODEBUG
             std::set<T*> pointers;
         #endif
 
@@ -208,7 +208,11 @@ class mailbox : public recycle_memory<T> {
             map_value() {
                 read_count = 0;
                 value = buffer_ptr<T>();
+            }
 
+            map_value(int rcount) {
+                read_count = rcount;
+                value = NULL;
             }
 
             map_value(int rcount, buffer_ptr<T> v) {
@@ -222,6 +226,9 @@ class mailbox : public recycle_memory<T> {
         std::unordered_map<int, std::shared_ptr<map_value>> box;
         std::mutex box_lock;
         std::condition_variable box_cv;
+        #ifndef NODEBUG
+            std::set<int> used_keys;
+        #endif
 
         bool contains_key(int idx);
         bool test_contains_key(int idx);

@@ -14,7 +14,7 @@
 template <typename T>
 recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max) : shp(s) {
     free_q = std::deque<T*>();
-    #ifndef NDEBUG
+    #ifndef NODEBUG
         pointers = std::set<T*>();
     #endif
 
@@ -38,8 +38,10 @@ recycle_memory<T>::recycle_memory(const std::vector<size_t> s, unsigned int max)
             break;
         }
 
-        #ifndef NDEBUG
+        #ifndef NODEBUG
+            // set to f0 for use after free check
             memset(reinterpret_cast<void*>(temp), 0xf0, sizeof(T)*size);
+            // put pointers in set
             pointers.insert(temp);
         #endif
         free_q.push_back(temp);
@@ -74,7 +76,7 @@ auto recycle_memory<T>::shape() const noexcept -> const std::vector<size_t>& {
 template <typename T>
 void recycle_memory<T>::return_memory(T* p) {
     std::unique_lock<std::mutex> guard(free_mutex);
-    #ifndef NDEBUG
+    #ifndef NODEBUG
     // buffer_ptr constructor is private so no rogue buffers will ever
     // reach this function
     memset(reinterpret_cast<void*>(p), 0xf0, sizeof(T)*size);
